@@ -4,4 +4,4 @@ pytest>=7.0.0
 
 torch-geometric>=2.3.0
 networkx>=3.0
-librosa>=0.10.0\nscikit-learn>=1.2.0\n
+librosa>=0.10.0\nscikit-learn>=1.2.0\npandas>=2.0.0
