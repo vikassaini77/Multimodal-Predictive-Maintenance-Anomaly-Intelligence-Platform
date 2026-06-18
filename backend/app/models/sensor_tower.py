@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import math
 
 class SensorTower(nn.Module):
     """
@@ -31,7 +32,6 @@ class SensorTower(nn.Module):
 
         # 2. Transformer Encoder
         # 4 heads, 2 layers on CNN output, with Positional Encoding
-        # The CNN outputs 512 channels, so the transformer's d_model will be 512.
         self.d_model = 512
         encoder_layer = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=4, batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
@@ -41,13 +41,21 @@ class SensorTower(nn.Module):
         features = self.cnn_extractor(x)
         
         # features shape: (batch_size, channels, new_seq_len)
-        # Transformer expects (batch_size, seq_len, channels) with batch_first=True
-        features = features.permute(0, 2, 1)
+        features = features.permute(0, 2, 1) # (batch_size, new_seq_len, channels)
         
-        # We need a simple positional encoding before transformer
-        # Since seq_len might vary or be fixed, we can just use a learned parameter or let transformer handle without if not strict,
-        # but the prompt specifically says "Positional encoding + multi-head attention"
-        # Let's add a simple sinusoidal or learned PE. I'll add learned PE in __init__.
-        # Wait, I can't easily add it to __init__ if I don't know new_seq_len, but usually we just add sinusoidal PE.
-        # Let's write a quick PositionalEncoding module or just add it inline.
-
+        # Add simple positional encoding
+        # Create a positional encoding tensor dynamically based on sequence length
+        seq_len = features.size(1)
+        pe = torch.zeros(seq_len, self.d_model, device=features.device)
+        position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, self.d_model, 2).float() * (-math.log(10000.0) / self.d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        
+        # Add PE to features
+        features = features + pe.unsqueeze(0)
+        
+        # Pass through transformer encoder
+        features = self.transformer_encoder(features)
+        
+        return features
