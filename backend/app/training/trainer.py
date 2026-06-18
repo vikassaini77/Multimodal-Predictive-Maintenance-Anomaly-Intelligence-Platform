@@ -4,6 +4,8 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.cuda.amp import GradScaler, autocast
 import os
+import mlflow
+import math
 
 class Trainer:
     def __init__(
@@ -23,6 +25,7 @@ class Trainer:
         self.lr = lr
         self.device = device
         self.checkpoint_dir = checkpoint_dir
+        self.batch_size = train_loader.batch_size if hasattr(train_loader, 'batch_size') else 32
         
         os.makedirs(self.checkpoint_dir, exist_ok=True)
         
@@ -74,12 +77,29 @@ class Trainer:
         return total_loss / len(self.val_loader)
         
     def train(self):
+        mlflow.log_params({
+            "epochs": self.epochs,
+            "learning_rate": self.lr,
+            "batch_size": self.batch_size
+        })
+        
         for epoch in range(1, self.epochs + 1):
             train_loss = self.train_epoch(epoch)
             val_loss = self.validate()
+            # Also calculate RMSE
+            val_rmse = math.sqrt(val_loss)
+            
             self.scheduler.step()
             
-            print(f"Epoch {epoch}/{self.epochs} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
+            print(f"Epoch {epoch}/{self.epochs} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f} - Val RMSE: {val_rmse:.4f}")
+            
+            # Log metrics
+            mlflow.log_metrics({
+                "train_loss": train_loss,
+                "val_loss": val_loss,
+                "val_rmse": val_rmse,
+                "lr": self.scheduler.get_last_lr()[0]
+            }, step=epoch)
             
             # Checkpointing
             checkpoint_path = os.path.join(self.checkpoint_dir, f"model_epoch_{epoch}.pt")
