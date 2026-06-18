@@ -36,6 +36,14 @@ class SensorTower(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=self.d_model, nhead=4, batch_first=True)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
 
+        # 3. Projection Head
+        # 2-layer MLP mapping to 256-dim embedding space
+        self.projection_head = nn.Sequential(
+            nn.Linear(self.d_model, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256)
+        )
+
     def forward(self, x):
         # x shape: (batch_size, in_channels, seq_len)
         features = self.cnn_extractor(x)
@@ -58,4 +66,13 @@ class SensorTower(nn.Module):
         # Pass through transformer encoder
         features = self.transformer_encoder(features)
         
-        return features
+        # Pool the sequence (global average pooling)
+        features = features.mean(dim=1)
+        
+        # Projection head
+        embeddings = self.projection_head(features)
+        
+        # L2 Normalization
+        embeddings = nn.functional.normalize(embeddings, p=2, dim=1)
+        
+        return embeddings
