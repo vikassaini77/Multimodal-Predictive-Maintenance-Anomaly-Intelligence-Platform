@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
+import timm
 
 class SensorTower(nn.Module):
     """1D-CNN + Transformer for NASA CMAPSS and MIMII time-series data."""
@@ -44,15 +45,26 @@ class VisualTower(nn.Module):
     """EfficientNet-B4 for MVTec AD visual defect detection."""
     def __init__(self, embed_dim: int, freeze_backbone: bool = False):
         super().__init__()
-        # Use a pre-trained EfficientNet-B4
-        effnet = models.efficientnet_b4(weights=models.EfficientNet_B4_Weights.DEFAULT)
-        # Remove the classification head
-        self.features = effnet.features
+        # Use a pre-trained EfficientNet-B4 via timm
+        # global_pool='' ensures we get the unpooled 2D spatial feature map
+        self.backbone = timm.create_model('efficientnet_b4', pretrained=True, num_classes=0, global_pool='')
         
-        # 4. Optional freezing of the massive backbone to prevent overfitting early on
+        # 4. Freeze all but the last 2 blocks to prevent overfitting
         if freeze_backbone:
-            for param in self.features.parameters():
+            # First freeze all parameters
+            for param in self.backbone.parameters():
                 param.requires_grad = False
+                
+            # Unfreeze the last 2 blocks
+            for block in self.backbone.blocks[-2:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+                    
+            # Unfreeze the final projection conv and batch norm
+            for param in self.backbone.conv_head.parameters():
+                param.requires_grad = True
+            for param in self.backbone.bn2.parameters():
+                param.requires_grad = True
                 
         self.pool = nn.AdaptiveAvgPool2d(1)
         
@@ -66,7 +78,7 @@ class VisualTower(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x shape: (batch_size, 3, H, W)
-        x = self.features(x)
+        x = self.backbone(x)
         x = self.pool(x).flatten(1)
         return self.projection_head(x)
 
@@ -128,3 +140,20 @@ class TwoTowerAnomalyModel(nn.Module):
             anomaly_score = 1.0 - ((similarity + 1.0) / 2.0)
             
             return anomaly_score
+
+class VisualTowerClassifier(nn.Module):
+    """
+    Wrapper around VisualTower to add a binary classification head.
+    Used for fine-tuning the visual tower on MVTec AD with Focal Loss.
+    """
+    def __init__(self, visual_tower: VisualTower):
+        super().__init__()
+        self.visual_tower = visual_tower
+        # The visual tower outputs embed_dim (default 256)
+        embed_dim = visual_tower.projection_head[-1].out_features
+        self.classifier = nn.Linear(embed_dim, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        emb = self.visual_tower(x)
+        # return logits
+        return self.classifier(emb).squeeze(-1)
