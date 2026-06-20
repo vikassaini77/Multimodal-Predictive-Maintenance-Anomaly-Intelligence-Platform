@@ -261,3 +261,127 @@ class AnomalyTrainer:
                 if patience_counter >= self.patience:
                     print(f"Early stopping triggered after {epoch} epochs. Best AUROC: {best_auroc:.4f}")
                     break
+
+from backend.app.models.two_tower import TwoTowerAnomalyModel, NTXentLoss
+
+class TwoTowerContrastiveTrainer:
+    """
+    Trainer for TwoTowerAnomalyModel using NT-Xent contrastive loss.
+    Trains the sensor and visual towers jointly.
+    """
+    def __init__(
+        self,
+        model: TwoTowerAnomalyModel,
+        train_loader,
+        val_loader,
+        epochs: int = 50,
+        sensor_lr: float = 3e-4,
+        visual_lr: float = 1e-4,
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        checkpoint_dir: str = "checkpoints_two_tower"
+    ):
+        self.model = model.to(device)
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.epochs = epochs
+        self.sensor_lr = sensor_lr
+        self.visual_lr = visual_lr
+        self.device = device
+        self.checkpoint_dir = checkpoint_dir
+        
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        
+        self.criterion = NTXentLoss()
+        
+        # Separate learning rates for the two towers
+        # Visual tower uses a smaller LR as it's fine-tuning a pre-trained EfficientNet
+        # Sensor tower uses a larger LR as it's trained from scratch
+        optimizer_groups = [
+            {'params': self.model.sensor_tower.parameters(), 'lr': self.sensor_lr},
+            {'params': self.model.visual_tower.parameters(), 'lr': self.visual_lr},
+            {'params': [self.model.temperature], 'lr': self.sensor_lr}
+        ]
+        
+        self.optimizer = AdamW(optimizer_groups, weight_decay=1e-4)
+        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=self.epochs)
+        self.scaler = GradScaler()
+        
+    def train_epoch(self, epoch):
+        self.model.train()
+        total_loss = 0.0
+        
+        for sensor_data, visual_data, _ in self.train_loader:
+            sensor_data = sensor_data.to(self.device)
+            visual_data = visual_data.to(self.device)
+            
+            self.optimizer.zero_grad()
+            
+            with autocast():
+                out = self.model(sensor_data, visual_data)
+                loss = self.criterion(out['sensor_embeddings'], out['visual_embeddings'], out['temperature'])
+                
+            self.scaler.scale(loss).backward()
+            
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+            
+            total_loss += loss.item()
+            
+        return total_loss / len(self.train_loader)
+        
+    def validate(self):
+        self.model.eval()
+        total_loss = 0.0
+        
+        with torch.no_grad():
+            for sensor_data, visual_data, _ in self.val_loader:
+                sensor_data = sensor_data.to(self.device)
+                visual_data = visual_data.to(self.device)
+                
+                with autocast():
+                    out = self.model(sensor_data, visual_data)
+                    loss = self.criterion(out['sensor_embeddings'], out['visual_embeddings'], out['temperature'])
+                    
+                total_loss += loss.item()
+                
+        return total_loss / len(self.val_loader)
+        
+    def train(self):
+        mlflow.log_params({
+            "epochs": self.epochs,
+            "sensor_lr": self.sensor_lr,
+            "visual_lr": self.visual_lr,
+        })
+        
+        best_loss = float('inf')
+        
+        for epoch in range(1, self.epochs + 1):
+            train_loss = self.train_epoch(epoch)
+            val_loss = self.validate()
+            
+            self.scheduler.step()
+            
+            print(f"Epoch {epoch}/{self.epochs} - Train Contrastive Loss: {train_loss:.4f} - Val Contrastive Loss: {val_loss:.4f} - Temp: {torch.clamp(self.model.temperature.exp(), max=100.0).item():.4f}")
+            
+            mlflow.log_metrics({
+                "contrastive_train_loss": train_loss,
+                "contrastive_val_loss": val_loss,
+                "sensor_lr": self.optimizer.param_groups[0]['lr'],
+                "visual_lr": self.optimizer.param_groups[1]['lr'],
+                "temperature": torch.clamp(self.model.temperature.exp(), max=100.0).item()
+            }, step=epoch)
+            
+            if val_loss < best_loss:
+                best_loss = val_loss
+                
+                checkpoint_path = os.path.join(self.checkpoint_dir, "best_twotower_model.pt")
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'val_loss': val_loss,
+                }, checkpoint_path)
+                print(f"[*] New best model saved with Loss: {val_loss:.4f}")
