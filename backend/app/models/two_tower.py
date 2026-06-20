@@ -157,3 +157,41 @@ class VisualTowerClassifier(nn.Module):
         emb = self.visual_tower(x)
         # return logits
         return self.classifier(emb).squeeze(-1)
+
+class NTXentLoss(nn.Module):
+    """
+    Normalized Temperature-scaled Cross Entropy Loss for contrastive learning.
+    Pulls matched (positive) sensor and visual embeddings together, 
+    while pushing all other (negative) pairs apart.
+    """
+    def __init__(self):
+        super().__init__()
+        # We don't initialize temperature here because TwoTowerAnomalyModel holds the learned temperature parameter.
+        self.criterion = nn.CrossEntropyLoss(reduction="mean")
+
+    def forward(self, sensor_emb: torch.Tensor, visual_emb: torch.Tensor, temperature: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            sensor_emb: L2 normalized tensor (B, D)
+            visual_emb: L2 normalized tensor (B, D)
+            temperature: Scalar tensor
+        """
+        batch_size = sensor_emb.size(0)
+        
+        # Calculate similarity between all sensor and visual embeddings in the batch
+        # similarity shape: (B, B)
+        # element (i, j) is the cosine similarity between sensor_i and visual_j
+        logits = torch.matmul(sensor_emb, visual_emb.T)
+        
+        # Scale by temperature
+        logits = logits * temperature
+        
+        # The targets are the diagonal elements (i == j are positive pairs)
+        targets = torch.arange(batch_size, device=sensor_emb.device)
+        
+        # Symmetric loss: we want to predict the correct visual for each sensor,
+        # and the correct sensor for each visual.
+        loss_s2v = self.criterion(logits, targets)
+        loss_v2s = self.criterion(logits.T, targets)
+        
+        return (loss_s2v + loss_v2s) / 2.0
