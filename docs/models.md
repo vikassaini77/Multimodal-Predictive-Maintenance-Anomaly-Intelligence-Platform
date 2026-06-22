@@ -9,32 +9,38 @@ The Sensor Tower is designed to process multivariate time-series sensor data (e.
 2. **Transformer Encoder**: 2 layers with 4 heads on top of the CNN output, using positional encoding to capture temporal context.
 3. **Projection Head**: A 2-layer MLP mapping the Transformer output to a 256-dimensional embedding space with L2 normalization, serving as a shared space for fusion later.
 
-### Layer Diagram
+## Heterogeneous GraphSAGE (Equipment Topology GNN)
+
+The HeteroEquipmentGNN is designed to model the physical topology of the factory floor, propagating fault signals and identifying risks across interconnected machines, conveyors, and sensors.
+
+### Architecture Overview
+1. **Heterogeneous GNN Wrapper**: Utilizes PyTorch Geometric's `HeteroConv` to handle multiple node types (`machine`, `conveyor`, `sensor`) and edge types independently.
+2. **GraphSAGE Layers**: A 2-layer stack of `SAGEConv` (with mean aggregation) per edge relation, allowing for message passing between distinct equipment types.
+3. **Fault Prediction Head**: A node-level binary classification head (Linear -> Sigmoid) applied to the target node representations (e.g., `machine`) to output fault probability within the next N cycles.
+
+### Message Passing Diagram
 ```mermaid
 graph TD
-    A[Input: batch_size, 14, seq_len] --> B[CNN Block 1: Conv1D, BN, ReLU, MaxPool]
-    B --> C[CNN Block 2: Conv1D, BN, ReLU, MaxPool]
-    C --> D[CNN Block 3: Conv1D, BN, ReLU, MaxPool]
-    D --> E[Reshape & Add Positional Encoding]
-    E --> F[Transformer Encoder: 2 layers, 4 heads, d_model=512]
-    F --> G[Global Average Pooling]
-    G --> H[Projection Head: Linear 512->512, ReLU, Linear 512->256]
-    H --> I[L2 Normalization]
-    I --> J[Output: batch_size, 256]
+    classDef machine fill:#lightblue,stroke:#333,stroke-width:2px;
+    classDef conveyor fill:#gray,stroke:#333,stroke-width:2px;
+    
+    A[Machine 1 Features: 256d]:::machine -->|feeds_into| B[Conveyor 1 Features: 256d]:::conveyor
+    B -->|feeds_into_rev| C[Machine 2 Features: 256d]:::machine
+    
+    A -. SAGEConv Msg .-> B
+    B -. SAGEConv Msg .-> C
+    
+    C --> D[FaultPredictionHead: Sigmoid]
+    D --> E[Fault Risk Score: 0.0 - 1.0]
 ```
 
-### Parameter Count
-- **CNN Extractor**: ~270K parameters
-- **Transformer Encoder**: ~3.1M parameters
-- **Projection Head**: ~390K parameters
-- **Total**: ~3.8M parameters
+### Fault Propagation & Hop Distance
 
-### Hyperparameter Table
-| Hyperparameter | Value | Description |
+We simulate faults starting at root machines and traversing downstream via BFS. The `GNNFaultTrainer` uses weighted BCE to handle imbalanced fault classes. As expected, prediction accuracy varies based on hop distance from the root fault.
+
+| Hop Distance | Expected Accuracy | Description |
 |---|---|---|
-| `in_channels` | 14 | Number of sensor channels |
-| `cnn_out_channels` | 512 | Output channels of the final CNN block |
-| `d_model` | 512 | Hidden dimension of the Transformer Encoder |
-| `nhead` | 4 | Number of attention heads in Transformer |
-| `num_layers` | 2 | Number of Transformer Encoder layers |
-| `embedding_dim` | 256 | Dimension of the final projected embedding |
+| Hop 0 (Root) | > 95% | Direct fault injection location; clear signal. |
+| Hop 1 | ~ 85% | Immediate downstream machine; strong message passing signal. |
+| Hop 2 | ~ 70% | Secondary downstream machine; diluted signal. |
+| Hop 3+ | < 60% | Distant machines; minimal signal propagation due to 2-layer GNN limit. |
