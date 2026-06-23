@@ -42,7 +42,7 @@ def build_synthetic_factory_graph(num_lines: int = 3, machines_per_line: int = 4
             
     return G
 
-def convert_to_pyg_heterodata(nx_graph: nx.DiGraph, machine_embeddings: torch.Tensor = None) -> HeteroData:
+def convert_to_pyg_heterodata(nx_graph: nx.DiGraph, machine_embeddings: torch.Tensor = None, conveyor_embeddings: torch.Tensor = None, sensor_embeddings: torch.Tensor = None) -> HeteroData:
     """
     Maps NetworkX graph to PyTorch Geometric HeteroData format, attaching embeddings.
     """
@@ -63,16 +63,22 @@ def convert_to_pyg_heterodata(nx_graph: nx.DiGraph, machine_embeddings: torch.Te
     if machine_embeddings is not None:
         assert machine_embeddings.shape[0] == num_machines, f"Expected {num_machines} embeddings, got {machine_embeddings.shape[0]}"
         data[NODE_MACHINE].x = machine_embeddings
-    else:
+    elif num_machines > 0:
         # Default fallback if no embeddings provided (e.g. testing)
         data[NODE_MACHINE].x = torch.zeros((num_machines, 256), dtype=torch.float)
         
     num_conveyors = len(nodes_by_type[NODE_CONVEYOR])
-    if num_conveyors > 0:
+    if conveyor_embeddings is not None:
+        assert conveyor_embeddings.shape[0] == num_conveyors
+        data[NODE_CONVEYOR].x = conveyor_embeddings
+    elif num_conveyors > 0:
         data[NODE_CONVEYOR].x = torch.zeros((num_conveyors, 256), dtype=torch.float)
         
     num_sensors = len(nodes_by_type[NODE_SENSOR])
-    if num_sensors > 0:
+    if sensor_embeddings is not None:
+        assert sensor_embeddings.shape[0] == num_sensors
+        data[NODE_SENSOR].x = sensor_embeddings
+    elif num_sensors > 0:
         data[NODE_SENSOR].x = torch.zeros((num_sensors, 256), dtype=torch.float)
         
     # Extract edges
