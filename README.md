@@ -19,6 +19,7 @@ We have successfully implemented the multimodal data alignment and Two-Tower mod
 | 05_visual_tower | Visual-only | Focal | EfficientNet on MVTec |
 | 07_two_tower_v1 | Multimodal | NT-Xent | Joint training, Week 1 milestone |
 
-### Week 2 Preparation
-- Start graph modeling for equipment hierarchies (GNN layer).
-- Retrieve maintenance manuals with pgvector for the RAG pipeline.
+## Week 2 Progress: GNN Fault Propagation and Explainability
+- Completed GraphSAGE heterogeneous models for factory topology.
+- Added `/graph/predict` FastAPI serving layer with Pydantic payload validation.
+- Integrated PyTorch Geometric `GNNExplainer` for subgraph-level predictions (identifying top contributing neighbor nodes).
