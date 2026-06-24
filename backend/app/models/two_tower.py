@@ -28,13 +28,20 @@ class SensorTower(nn.Module):
             nn.Linear(128, embed_dim)
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, return_seq: bool = False) -> torch.Tensor:
         # x shape: (batch_size, input_dim, seq_len)
         x = self.conv(x)  # shape: (batch_size, 128, seq_len)
         
         # Transformer expects (batch, seq, feature) when batch_first=True
         x = x.permute(0, 2, 1)
         x = self.transformer(x)
+        
+        if return_seq:
+            # We need to project the sequence to embed_dim
+            # x is (B, seq_len, 128)
+            # projection_head is linear, so we can apply it directly to the last dimension
+            return self.projection_head(x)
+            
         # Convert back to (batch, feature, seq) for pooling
         x = x.permute(0, 2, 1)
         
@@ -76,9 +83,15 @@ class VisualTower(nn.Module):
             nn.Linear(512, embed_dim)
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, return_seq: bool = False) -> torch.Tensor:
         # x shape: (batch_size, 3, H, W)
-        x = self.backbone(x)
+        x = self.backbone(x) # (B, 1792, H', W')
+        
+        if return_seq:
+            B, C, H, W = x.shape
+            x = x.view(B, C, H * W).transpose(1, 2) # (B, seq_len, 1792)
+            return self.projection_head(x) # (B, seq_len, embed_dim)
+            
         x = self.pool(x).flatten(1)
         return self.projection_head(x)
 
