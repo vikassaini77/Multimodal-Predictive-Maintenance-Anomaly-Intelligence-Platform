@@ -44,3 +44,46 @@ We simulate faults starting at root machines and traversing downstream via BFS. 
 | Hop 1 | ~ 85% | Immediate downstream machine; strong message passing signal. |
 | Hop 2 | ~ 70% | Secondary downstream machine; diluted signal. |
 | Hop 3+ | < 60% | Distant machines; minimal signal propagation due to 2-layer GNN limit. |
+
+## Cross-Modal Attention Fusion
+
+The `MultimodalFusionModel` wraps the Two-Tower anomaly model, extending it with a bidirectional cross-attention mechanism to fuse the discrete sequence embeddings into a single representation.
+
+### Architecture Overview
+1. **Sequence Extraction**: Unlike the baseline anomaly model which pulls `AdaptiveAvgPool` representations, the fusion model intercepts the sequences directly (`(B, L_s, 128)` from Transformer, `(B, L_v, 1792)` from EfficientNet).
+2. **Symmetric Cross-Attention**: 
+   - **Sensor $\rightarrow$ Visual**: Visual sequences act as Key/Value, while the Sensor acts as the Query.
+   - **Visual $\rightarrow$ Sensor**: Sensor sequences act as Key/Value, while the Visual acts as the Query.
+   - Outputs are pooled and concatenated.
+3. **Learnable Modality Gating**: Handles missing modalities (e.g., when a camera goes offline). The gating network down-weights the missing or low-confidence modality to prevent noisy gradients, allowing the model to gracefully degrade to single-modality inference.
+
+### Attention Flow Diagram
+```mermaid
+graph TD
+    classDef sensor fill:#ff9999,stroke:#333,stroke-width:2px;
+    classDef visual fill:#99ccff,stroke:#333,stroke-width:2px;
+    classDef fusion fill:#cc99ff,stroke:#333,stroke-width:2px;
+    
+    S[Sensor Sequence]:::sensor --> S2V_Q[Query]:::sensor
+    V[Visual Sequence]:::visual --> S2V_KV[Key/Value]:::visual
+    S2V_Q --> MHA1[Multi-Head Attention]:::fusion
+    S2V_KV --> MHA1
+    
+    V --> V2S_Q[Query]:::visual
+    S --> V2S_KV[Key/Value]:::sensor
+    V2S_Q --> MHA2[Multi-Head Attention]:::fusion
+    V2S_KV --> MHA2
+    
+    MHA1 --> Pool1[Mean Pool]
+    MHA2 --> Pool2[Mean Pool]
+    
+    Pool1 --> Concat
+    Pool2 --> Concat
+    Concat --> Proj[Linear Projection]:::fusion
+    
+    S --> Gate[Gating Network]
+    V --> Gate
+    Gate --> Weighting[Modality Fallback Weights]
+    Proj --> Final[Fused 256-dim Embedding]
+    Weighting --> Final
+```
