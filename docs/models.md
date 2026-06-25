@@ -87,3 +87,27 @@ graph TD
     Proj --> Final[Fused 256-dim Embedding]
     Weighting --> Final
 ```
+
+## Anomaly Scoring & Calibration
+
+The final stage of the predictive pipeline maps the fused 256-dim embedding to a robust, actionable `[0, 1]` risk score. 
+
+### 1. Anomaly Scorer Head
+We use a 3-layer Multi-Layer Perceptron (MLP) mapping `256 -> 64 -> 16 -> 1`. It outputs a single raw logit, which a Sigmoid activation converts to a bounded probability.
+
+### 2. Mahalanobis Distance (Auxiliary Signal)
+For robust Out-of-Distribution (OOD) detection, we compute the Mahalanobis distance from a learned "normal-class" centroid in the embedding space:
+- We fit a centroid and an inverse covariance (precision) matrix using a batch of verified normal samples.
+- Inference computes the squared distance, acting as a geometric fallback signal if the MLP is uncertain.
+
+### 3. Platt Scaling
+Raw neural network probabilities are often overconfident and uncalibrated. We employ **Platt Scaling**:
+- A Logistic Regression model is fit on the validation set mapping the raw logits to the true binary labels.
+- This ensures the output probability reflects the true empirical likelihood of a fault.
+
+### 4. Threshold Tuning
+We do not hardcode a `0.5` decision boundary. Instead, we sweep probabilities to optimize the **F1-score** on the Precision-Recall (PR) curve using the validation set.
+- This max-F1 threshold guarantees the best balance between catching faults (Recall) and minimizing false alarms (Precision).
+
+### 5. Confidence Intervals
+To quantify certainty, the evaluation pipeline utilizes 1000-sample bootstrapping to report 95% Confidence Intervals (CIs) on headline metrics like AUROC and F1, ensuring the model's reliability in production.
