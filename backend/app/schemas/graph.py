@@ -26,3 +26,19 @@ class RiskPrediction(BaseModel):
     fault_probability: float
     is_fault: bool
     top_contributing_neighbors: Optional[List[NodeExplanation]] = None
+
+class FullPredictRequest(BaseModel):
+    machine_id: str
+    timestamp: float
+    sensor_data: Optional[List[List[float]]] = Field(None, description="Raw sensor data sequence [channels, seq_len]")
+    visual_data: Optional[List[List[List[float]]]] = Field(None, description="Raw visual data [channels, H, W]")
+    graph: GraphInput = Field(..., description="Local neighborhood graph topology")
+
+class FullPredictResponse(BaseModel):
+    machine_id: str
+    timestamp: float
+    anomaly_score: float
+    is_anomaly: bool
+    threshold: float
+    cache_hit: bool
+    explanations: Optional[List[NodeExplanation]] = None
