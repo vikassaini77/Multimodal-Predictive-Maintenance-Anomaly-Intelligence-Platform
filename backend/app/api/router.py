@@ -102,3 +102,60 @@ async def predict_graph_faults(
         ))
         
     return predictions
+
+from backend.app.schemas.graph import FullPredictRequest, FullPredictResponse
+from torch_geometric.data import HeteroData
+
+@router.post("/predict/full", response_model=FullPredictResponse)
+async def predict_full_pipeline(
+    payload: FullPredictRequest,
+    models: ModelContainer = Depends(get_model_container)
+):
+    """
+    End-to-End Pipeline: Raw Input -> Towers -> Fusion -> GNN Context -> Calibrated Score
+    """
+    try:
+        # 1. Parse Graph
+        nx_graph = nx.DiGraph()
+        for node in payload.graph.nodes:
+            nx_graph.add_node(node.id, type=node.type)
+        for edge in payload.graph.edges:
+            source_type = nx_graph.nodes[edge.source]['type']
+            target_type = nx_graph.nodes[edge.target]['type']
+            edge_tuple = (source_type, edge.type, target_type)
+            nx_graph.add_edge(edge.source, edge.target, type=edge_tuple)
+            
+        # Convert to HeteroData (ignoring initial embeddings for this smoke test)
+        hetero_graph = convert_to_pyg_heterodata(nx_graph)
+        
+        # 2. Parse Raw Data
+        sensor_tensor = None
+        if payload.sensor_data:
+            sensor_tensor = torch.tensor(payload.sensor_data, dtype=torch.float32)
+            
+        visual_tensor = None
+        if payload.visual_data:
+            visual_tensor = torch.tensor(payload.visual_data, dtype=torch.float32)
+            
+        # 3. Run Pipeline
+        result = models.pipeline.predict(
+            machine_id=payload.machine_id,
+            timestamp=payload.timestamp,
+            sensor_data=sensor_tensor,
+            visual_data=visual_tensor,
+            hetero_graph=hetero_graph
+        )
+        
+        # For the sake of the smoke test, we mock explanations
+        # True explanations would come from GraphFaultExplainer
+        
+        return FullPredictResponse(
+            machine_id=result["machine_id"],
+            timestamp=result["timestamp"],
+            anomaly_score=result["anomaly_score"],
+            is_anomaly=result["is_anomaly"],
+            threshold=result["threshold"],
+            cache_hit=result["cache_hit"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline inference failed: {str(e)}")
