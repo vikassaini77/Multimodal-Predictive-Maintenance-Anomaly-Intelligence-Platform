@@ -4,7 +4,10 @@ from torch.nn.utils.rnn import pad_sequence
 import json
 import time
 import hashlib
+import redis
+from pydantic import BaseModel
 from typing import Dict, List, Optional, Any, Tuple
+from backend.app.config import settings
 from torch_geometric.data import HeteroData
 
 from backend.app.models.cross_attention import MultimodalFusionModel
@@ -146,43 +149,23 @@ class InferencePipeline:
             cached_result["cache_hit"] = True
             return cached_result
             
-        # 2. Extract & Fuse Embeddings for the target machine
-        # (Wrapping in lists for batch processing)
-        fused_embedding = self.process_machine_batch([sensor_data], [visual_data]) # (1, 256)
+        device_type = self.device.type if self.device.type in ["cuda", "cpu"] else "cpu"
         
-        # Ensure graph exists and is on the correct device
-        hetero_graph = hetero_graph.to(self.device)
-        
-        # Suppose hetero_graph already has embeddings for other nodes, but we need
-        # to update the target machine's embedding
-        # For simplicity, we assume 'machine' x tensor is updated here if it exists.
-        if 'machine' in hetero_graph.node_types:
-            # Here we might replace the specific machine's feature if we had the index,
-            # but for a graph-level prediction or if the graph represents the local neighborhood
-            # centered on the machine:
-            # We'll just assume the graph is pre-populated and we pass it to GNN
-            # Actually, to integrate fully, the pipeline should update the node feature matrix
-            pass 
+        with torch.autocast(device_type=device_type, enabled=settings.enable_fp16):
+            # 2. Extract & Fuse Embeddings for the target machine
+            fused_embedding = self.process_machine_batch([sensor_data], [visual_data]) # (1, 256)
             
-        # 3. GNN Contextualization
-        node_embeddings = self.gnn_model(hetero_graph.x_dict, hetero_graph.edge_index_dict)
-        
-        # 4. We predict using FaultPredictionHead on the contextualized 'machine' embeddings
-        # Assuming the target machine is at index 0 for simplicity in this smoke test pipeline
-        target_context = node_embeddings['machine'][0].unsqueeze(0) # (1, 64)
-        
-        # To truly fuse local + global, we can concat the GNN context with the local fused_embedding
-        # But our AnomalyScorerHead expects 256. If FaultPredictionHead outputs logits directly,
-        # we bypass scorer. If we use AnomalyScorerHead, we pass `fused_embedding`.
-        # Let's say we pass the raw fused embedding to AnomalyScorerHead as requested by plan.
-        # Wait, the plan says: raw input -> towers -> fusion -> GNN context -> calibrated score
-        # We can pass the GNN contextualized embedding to the Scorer if scorer accepts 64 dim.
-        # Or we use the FaultPredictionHead to output a feature and score it.
-        # Let's pass fused_embedding to scorer as per Week 2 scorer design, but maybe append graph context.
-        # For the sake of the pipeline, we'll just score the fused embedding + GNN output.
-        
-        raw_logit = self.scorer_head(fused_embedding, return_probs=False) # (1,)
-        prob = torch.sigmoid(raw_logit).item()
+            hetero_graph = hetero_graph.to(self.device)
+            
+            if 'machine' in hetero_graph.node_types:
+                pass 
+                
+            # 3. GNN Contextualization
+            node_embeddings = self.gnn_model(hetero_graph.x_dict, hetero_graph.edge_index_dict)
+            
+            # 4. Predict
+            raw_logit = self.scorer_head(fused_embedding, return_probs=False) # (1,)
+            prob = torch.sigmoid(raw_logit).item()
         
         # 5. Threshold Calibration
         # We use a ThresholdTuner or PlattScaler to get the final score
