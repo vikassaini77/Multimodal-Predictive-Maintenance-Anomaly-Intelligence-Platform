@@ -17,6 +17,17 @@ class IndustrialMindConfig(BaseSettings):
     redis_port: int = 6379
     cache_ttl_seconds: int = 5
     
+    # Postgres Vector DB
+    pg_host: str = "localhost"
+    pg_port: int = 5432
+    pg_user: str = "postgres"
+    pg_pass: str = "postgres"
+    pg_db: str = "industrial_mind"
+    
+    @property
+    def database_url(self) -> str:
+        return f"postgresql://{self.pg_user}:{self.pg_pass}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
+    
     # ML Inference
     enable_fp16: bool = True
     
