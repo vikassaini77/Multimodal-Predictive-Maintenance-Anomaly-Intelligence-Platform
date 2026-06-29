@@ -31,3 +31,21 @@ graph TD
     C -->|384-dim vector| D[pgvector]
     D --> E[Document Indexer]
 ```
+
+## Retrieval Architecture
+
+The retrieval engine uses a **Hybrid Search** approach combined with a Cross-Encoder for maximum relevance (Recall@5).
+
+1. **Dense Retriever (`pgvector`)**:
+   - Executes nearest-neighbor search using the `<=>` cosine distance operator on 384-dimensional `all-MiniLM-L6-v2` embeddings.
+
+2. **Sparse Retriever (`rank_bm25`)**:
+   - Tokenizes documents with technical/industrial term considerations (lowercase, strip punctuation) to match exact keywords (e.g., "bearing", "cavitation").
+
+3. **Hybrid Retriever & Reciprocal Rank Fusion (RRF)**:
+   - Fuses Dense and BM25 candidate lists using RRF without needing tuned weights: `score = 1 / (k + rank)` where `k = 60`.
+   - Expands queries using domain-specific synonyms (e.g., "bearing failure" -> "bearing wear").
+
+4. **Cross-Encoder Reranker**:
+   - The top 20 candidates from the Hybrid Retriever are passed to `ms-marco-MiniLM-L-6-v2`.
+   - The Cross-Encoder scores the `(query, document)` pairs simultaneously via attention mechanisms to capture deep semantic relevance, returning the final Top 5.
