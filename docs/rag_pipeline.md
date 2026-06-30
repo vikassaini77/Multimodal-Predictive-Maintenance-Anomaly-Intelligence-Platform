@@ -49,3 +49,24 @@ The retrieval engine uses a **Hybrid Search** approach combined with a Cross-Enc
 4. **Cross-Encoder Reranker**:
    - The top 20 candidates from the Hybrid Retriever are passed to `ms-marco-MiniLM-L-6-v2`.
    - The Cross-Encoder scores the `(query, document)` pairs simultaneously via attention mechanisms to capture deep semantic relevance, returning the final Top 5.
+
+## Generation Architecture (Gemini 2.5 Flash)
+
+The generation layer utilizes Google's Gemini 2.5 Flash model for reasoning over the retrieved context.
+
+1. **LLM Client (`GeminiClient`)**:
+   - Uses `google-genai` SDK.
+   - Wraps calls with `tenacity` for exponential backoff on `429 Too Many Requests` or timeouts.
+
+2. **Prompt Template & Strict Citations**:
+   - The prompt instructs Gemini to act as an industrial maintenance expert.
+   - It strictly forces the model to synthesize answers using *only* the retrieved context and forces `Chunk ID` citations for every factual claim.
+
+3. **Structured Output (`RAGAnswer`)**:
+   - Forces Gemini to return JSON that adheres to a strict Pydantic schema:
+     `{ "answer": "...", "confidence": 0.95, "sources": ["chunk_1", "chunk_2"], "recommended_action": "..." }`
+
+4. **Hallucination Guard (`HallucinationGuard`)**:
+   - A post-hoc validator that intercepts the LLM output.
+   - Checks the `sources` cited in the JSON against the actual retrieved candidate `Chunk IDs`.
+   - If fake/hallucinated chunks are cited, it strips them and heavily penalizes the confidence score (or rejects the answer completely).
