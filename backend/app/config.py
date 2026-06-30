@@ -27,6 +27,9 @@ class IndustrialMindConfig(BaseSettings):
     @property
     def database_url(self) -> str:
         return f"postgresql://{self.pg_user}:{self.pg_pass}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
+        
+    # Gemini Configuration
+    gemini_api_key: str = "MOCK_KEY_FOR_TESTING"
     
     # ML Inference
     enable_fp16: bool = True
