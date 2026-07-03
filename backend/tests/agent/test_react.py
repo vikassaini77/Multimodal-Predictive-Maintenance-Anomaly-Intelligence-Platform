@@ -30,15 +30,18 @@ def test_react_agent_max_iterations(mock_genai_client):
     mock_instance.models.generate_content.return_value = mock_response
     mock_genai_client.return_value = mock_instance
     
-    tools = [QuerySensorDBTool()]
-    agent = ReActAgent(tools=tools, max_iterations=2)
-    
-    res = agent.run("Check machine m1")
-    
-    assert res["status"] == "timeout"
-    assert "timeout" in res["answer"].lower() or "time" in res["answer"].lower()
-    # verify generate_content was called exactly max_iterations times
-    assert mock_instance.models.generate_content.call_count == 2
+    # We mock registry to return our specific tools
+    from backend.app.agent.registry import PermissionScope
+    with patch("backend.app.agent.react.registry.get_allowed_tools") as mock_get_tools:
+        mock_get_tools.return_value = [QuerySensorDBTool()]
+        agent = ReActAgent(agent_scope=PermissionScope.READ_ONLY, max_iterations=2)
+        
+        res = agent.run("Check machine m1")
+        
+        assert res["status"] == "timeout"
+        assert "timeout" in res["answer"].lower() or "time" in res["answer"].lower()
+        # verify generate_content was called exactly max_iterations times
+        assert mock_instance.models.generate_content.call_count == 2
     
 def test_tool_dispatch():
     tool = QuerySensorDBTool()
