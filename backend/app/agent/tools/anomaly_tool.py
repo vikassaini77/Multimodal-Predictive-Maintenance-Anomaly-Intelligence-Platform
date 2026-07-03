@@ -45,3 +45,6 @@ class RunAnomalyScoreTool(Tool):
             }
             
         return json.dumps(result)
+
+from backend.app.agent.registry import registry, PermissionScope
+registry.register(RunAnomalyScoreTool(), PermissionScope.READ_ONLY)

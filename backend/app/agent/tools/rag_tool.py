@@ -34,3 +34,6 @@ class SearchManualRAGTool(Tool):
             return '{"answer": "Bearing wear is typically caused by inadequate lubrication or excessive vibration. Recommended action is immediate inspection and relubrication.", "confidence": 0.95, "sources": ["manual_v1_p45"], "recommended_action": "Inspect and relubricate bearings."}'
         
         return '{"answer": "No specific procedures found for this query.", "confidence": 0.1, "sources": [], "recommended_action": null}'
+
+from backend.app.agent.registry import registry, PermissionScope
+registry.register(SearchManualRAGTool(), PermissionScope.READ_ONLY)

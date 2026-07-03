@@ -4,15 +4,21 @@ from google import genai
 from google.genai import types
 from backend.app.config import settings
 from backend.app.agent.tools.base import Tool
+from backend.app.agent.registry import registry, PermissionScope
 
 class ReActAgent:
-    def __init__(self, tools: List[Tool], max_iterations: int = 5):
+    def __init__(self, agent_scope: PermissionScope = PermissionScope.READ_ONLY, max_iterations: int = 5):
+        # Fetch allowed tools from registry based on agent's scope
+        tools = registry.get_allowed_tools(agent_scope)
         self.tools = {tool.name: tool for tool in tools}
         self.max_iterations = max_iterations
         self.client = genai.Client(api_key=settings.gemini_api_key)
         
         # Prepare tools for Gemini
-        self.gemini_tools = [{"function_declarations": [tool.to_gemini_function() for tool in tools]}]
+        if tools:
+            self.gemini_tools = [{"function_declarations": [tool.to_gemini_function() for tool in tools]}]
+        else:
+            self.gemini_tools = []
         
         self.system_instruction = (
             "You are an autonomous industrial diagnostic agent. Your goal is to diagnose machine faults.\n"

@@ -34,3 +34,6 @@ class QuerySensorDBTool(Tool):
             "status": "success",
             "recent_readings": mock_data[:limit]
         })
+
+from backend.app.agent.registry import registry, PermissionScope
+registry.register(QuerySensorDBTool(), PermissionScope.READ_ONLY)
