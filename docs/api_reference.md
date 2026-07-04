@@ -1,69 +1,46 @@
-# API Reference: Graph Prediction Endpoint
+# API Reference
 
-The Multimodal Predictive Maintenance Platform exposes a FastAPI serving layer to score heterogeneous graph states for potential faults. 
+This document outlines the REST and WebSocket endpoints for interacting with the Multimodal Predictive Maintenance Platform.
 
-## `POST /graph/predict`
+## Core Endpoints
 
-Calculates fault risk probabilities per machine node using a pre-trained GraphSAGE network, and returns subgraph explanations detailing which connected equipment influenced the prediction.
+### `POST /graph/predict`
+Accepts a heterogeneous graph state (machines, sensors, conveyors) and returns fault probabilities along with GNN explanations for the top contributing neighbors.
 
-### Request Body Schema
-Expects a JSON payload matching the `GraphInput` schema.
+### `POST /graph/predict/full`
+End-to-End smoke test pipeline. Sends data through the Two-Tower fusion model, feeds it into the GraphSAGE model for topological context, and outputs a final calibrated anomaly score.
 
+## Agent Endpoints (Day 20)
+
+### `POST /agent/session/new`
+Creates a new conversation session, returning a unique `session_id`.
+**Response:**
 ```json
 {
-  "nodes": [
-    {
-      "id": "machine_01",
-      "type": "machine",
-      "features": [0.12, -0.45, ...] // 256-dim feature array
-    },
-    {
-      "id": "conveyor_A",
-      "type": "conveyor",
-      "features": [0.88, 0.03, ...]
-    }
-  ],
-  "edges": [
-    {
-      "source": "machine_01",
-      "target": "conveyor_A",
-      "type": "feeds_into"
-    }
-  ]
+  "session_id": "uuid-string",
+  "message": "Session created."
 }
 ```
 
-### Response Schema
-Returns a list of `RiskPrediction` objects for every `machine` in the request graph. 
+### `POST /agent/session/{session_id}/end`
+Terminates an active session and clears the conversation history from Redis.
 
-```json
-[
-  {
-    "node_id": "machine_01",
-    "node_type": "machine",
-    "fault_probability": 0.87,
-    "is_fault": true,
-    "top_contributing_neighbors": [
-      {
-        "node_id": "conveyor_A",
-        "node_type": "conveyor",
-        "importance_score": 0.45
-      }
-    ]
-  }
-]
-```
+### `WebSocket /agent/chat/{session_id}`
+Real-time conversational endpoint for interacting with the diagnostic agent.
 
-### cURL Example
-```bash
-curl -X 'POST' \
-  'http://localhost:8000/graph/predict' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "nodes": [
-    {"id": "m1", "type": "machine", "features": [0.0]}
-  ],
-  "edges": []
-}'
-```
+#### Protocol
+1. **Client** sends plain text message: `"Check machine_001"`
+2. **Server** sends acknowledgment:
+   ```json
+   {"type": "status", "content": "Thinking..."}
+   ```
+3. **Server** streams agent thought process (Trace Steps):
+   ```json
+   {"type": "trace_step", "content": {"iteration": "1"}}
+   {"type": "trace_step", "content": {"action": "query_sensor_db", "action_args": "{'machine_id': 'machine_001'}"}}
+   {"type": "trace_step", "content": {"observation": {"status": "success", "recent_readings": [...]}}}
+   ```
+4. **Server** sends final answer:
+   ```json
+   {"type": "final_answer", "content": "The machine looks fine, no alerts found."}
+   ```
