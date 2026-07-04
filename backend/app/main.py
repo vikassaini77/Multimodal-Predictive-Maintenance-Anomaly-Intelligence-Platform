@@ -26,7 +26,10 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(TraceIDMiddleware)
 
+from backend.app.api.agent_router import router as agent_router
+
 app.include_router(graph_router, prefix="/graph", tags=["graph"])
+app.include_router(agent_router, prefix="/agent", tags=["agent"])
 
 @app.get("/health")
 def health_check():
