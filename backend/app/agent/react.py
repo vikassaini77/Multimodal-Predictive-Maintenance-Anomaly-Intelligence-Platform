@@ -27,16 +27,17 @@ class ReActAgent:
             "If not, call the appropriate tool."
         )
 
-    def run(self, user_query: str) -> Dict[str, Any]:
+    def run(self, user_query: str, history: List[types.Content] = None) -> Dict[str, Any]:
         """
         Executes the ReAct loop until a final answer is reached or max iterations hit.
         """
         trace = []
         
         # We maintain conversation history
-        contents = [
+        contents = history if history else []
+        contents.append(
             types.Content(role="user", parts=[types.Part.from_text(text=user_query)])
-        ]
+        )
         
         for iteration in range(self.max_iterations):
             trace.append(f"--- Iteration {iteration + 1} ---")
