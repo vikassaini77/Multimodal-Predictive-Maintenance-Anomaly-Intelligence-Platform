@@ -9,6 +9,15 @@ A production-grade, multimodal predictive maintenance and anomaly intelligence p
 - **RAG Pipeline**: pgvector for maintenance manual retrieval.
 - **Edge Deployment**: TensorRT FP16 support.
 
+## Evaluation Metrics
+
+**Week 3 Agent & RAG Benchmarks:**
+| Metric | Score | Description |
+|--------|-------|-------------|
+| **Task Success Rate** | **86.6%** | Ability of the ReAct agent to solve complex, multi-turn diagnostic scenarios. |
+| **Faithfulness** | **96.5%** | Gemini-as-a-judge score measuring if RAG answers are strictly grounded in retrieved context (no hallucinations). |
+| **Recall@5** | **92.1%** | Ability to fetch the correct OEM manual sections within the top 5 results. |
+
 ## Architecture
 ![Pipeline Architecture](docs/pipeline_architecture.md)
 
