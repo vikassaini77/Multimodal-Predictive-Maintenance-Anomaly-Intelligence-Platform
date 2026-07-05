@@ -1,18 +1,25 @@
-# Week 3 Roadmap: RAG Pipeline & ReAct Agent
+# Project Roadmap
 
-In Week 3, we transition from the core ML inference engine to building the AI Agent layer that will consume these predictions and provide actionable maintenance intelligence.
+## Week 1: Data & Multimodal Deep Learning (Completed)
+- Time-series synthetic generation (vibration, temp).
+- MVTEC-AD visual anomaly dataset pipeline.
+- ResNet50 + CNN Two-Tower Contrastive Model.
+- GraphSAGE topology mapping for fault propagation.
 
-## Goals
-1. Implement a Retrieval-Augmented Generation (RAG) pipeline to query OEM maintenance manuals and past incident reports.
-2. Build a ReAct (Reasoning and Acting) Agent using Gemini 2.5 Flash to orchestrate diagnostics.
-3. Integrate the Agent with the FastAPI backend and external alerting systems (e.g., Slack/Email).
+## Week 2: RAG & Embeddings (Completed)
+- `sentence-transformers` vectorization of text documents.
+- `pgvector` indexing and retrieval.
+- Gemini LLM generation with contextual grounding.
 
-## Day-by-Day Breakdown
+## Week 3: Autonomous Agentic Reasoning (Completed)
+- ReAct Agent implementation for diagnostic logic.
+- Native Gemini tool calling for fetching sensor and visual data.
+- WebSocket chat API and memory management.
+- Guardrails (Rate Limiting, Action Confirmation).
+- Benchmarking (Task Success, Faithfulness).
 
-- **Day 15**: Setup `pgvector` database and chunking strategies for PDF maintenance manuals.
-- **Day 16**: Implement hybrid search (dense + sparse) for the RAG retriever.
-- **Day 17**: Develop the ReAct Agent core loop and prompt templates.
-- **Day 18**: Define Tool schemas for the Agent (e.g., `get_graph_prediction`, `search_manuals`, `get_sensor_history`).
-- **Day 19**: Integrate Agent orchestration within the FastAPI backend (new `/agent/chat` endpoint).
-- **Day 20**: Implement streaming responses and UI integration for the Agent chat interface.
-- **Day 21**: Week 3 Review, E2E Agent testing, and deployment prep.
+## Week 4: Edge Deployment & Optimization (Upcoming)
+- **TensorRT Optimization**: Export the PyTorch Two-Tower model and GraphSAGE to ONNX, then compile with NVIDIA TensorRT to drastically reduce latency and memory footprint.
+- **Edge Architecture**: Package the optimized models into a lightweight C++ / Python inference server using Triton Inference Server.
+- **Microk8s on Jetson**: Prepare deployment manifests for running the platform on a factory-floor edge device (e.g., NVIDIA Jetson Orin) via Microk8s.
+- **Quantization**: Explore INT8 quantization to further speed up the ResNet50 visual tower without losing accuracy.
