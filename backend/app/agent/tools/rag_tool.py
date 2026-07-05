@@ -1,39 +1,44 @@
 from pydantic import BaseModel, Field
 from typing import Type
+import json
 from backend.app.agent.tools.base import Tool
-from backend.app.rag.answerer import RAGAnswerer
-from sqlalchemy.orm import Session
-from backend.app.db.session import SessionLocal
+from backend.app.agent.registry import register_tool, PermissionScope
+from backend.app.rag.pipeline import RAGPipeline
 
-class RAGSearchSchema(BaseModel):
-    query: str = Field(..., description="The question or search query to look up in the OEM maintenance manuals (e.g., 'What causes bearing wear?').")
+class RAGSchema(BaseModel):
+    query: str = Field(..., description="The natural language query to search the maintenance manuals for.")
+    machine_id: str = Field(None, description="Optional. The specific machine ID to filter the manuals by.")
 
+@register_tool(PermissionScope.READ_ONLY)
 class SearchManualRAGTool(Tool):
+    def __init__(self):
+        self.rag_pipeline = RAGPipeline()
+        
     @property
     def name(self) -> str:
-        return "search_manual_rag"
+        return "search_maintenance_manuals"
         
     @property
     def description(self) -> str:
-        return "Queries the OEM maintenance manuals to find standard operating procedures, failure modes, and mitigation strategies."
+        return "Searches internal maintenance manuals, OEM guides, and historical repair logs to find troubleshooting steps or specs."
         
     @property
     def args_schema(self) -> Type[BaseModel]:
-        return RAGSearchSchema
+        return RAGSchema
         
-    def run(self, query: str) -> str:
-        # We mock this for the standalone agent tests if DB isn't ready
-        # In production, we'd do:
-        # db = SessionLocal()
-        # answerer = RAGAnswerer(db)
-        # res = answerer.answer_query(query)
-        # return res.model_dump_json()
-        
-        # MOCK IMPLEMENTATION:
-        if "bearing" in query.lower():
-            return '{"answer": "Bearing wear is typically caused by inadequate lubrication or excessive vibration. Recommended action is immediate inspection and relubrication.", "confidence": 0.95, "sources": ["manual_v1_p45"], "recommended_action": "Inspect and relubricate bearings."}'
-        
-        return '{"answer": "No specific procedures found for this query.", "confidence": 0.1, "sources": [], "recommended_action": null}'
-
-from backend.app.agent.registry import registry, PermissionScope
-registry.register(SearchManualRAGTool(), PermissionScope.READ_ONLY)
+    def run(self, query: str, machine_id: str = None) -> str:
+        # We call our real RAG pipeline from Week 2!
+        # In a test environment without a loaded DB, this might return empty results,
+        # but the agent loop will handle parsing the answer.
+        try:
+            answer, context_docs = self.rag_pipeline.query(query, top_k=3)
+            return json.dumps({
+                "status": "success",
+                "rag_answer": answer,
+                "sources_retrieved": len(context_docs)
+            })
+        except Exception as e:
+            return json.dumps({
+                "status": "error",
+                "message": f"Failed to query manuals: {str(e)}"
+            })

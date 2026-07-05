@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Type
 import json
 from backend.app.agent.tools.base import Tool
-from backend.app.agent.registry import registry, PermissionScope
+from backend.app.agent.registry import register_tool, PermissionScope
 from backend.app.agent.guardrails import RateLimiter, ActionGuard
 
 class AlertSchema(BaseModel):
@@ -11,6 +11,7 @@ class AlertSchema(BaseModel):
     message: str = Field(..., description="The diagnosis and recommended action.")
     human_confirmed: bool = Field(False, description="Set to True if a human operator has explicitly authorized this critical alert.")
 
+@register_tool(PermissionScope.ACTION)
 class DispatchAlertTool(Tool):
     def __init__(self):
         self.rate_limiter = RateLimiter(window_seconds=600)
@@ -47,6 +48,3 @@ class DispatchAlertTool(Tool):
             "status": "success",
             "message": f"Alert successfully dispatched to maintenance team for {machine_id} (Severity: {severity})."
         })
-
-# Register tool as ACTION
-registry.register(DispatchAlertTool(), PermissionScope.ACTION)
