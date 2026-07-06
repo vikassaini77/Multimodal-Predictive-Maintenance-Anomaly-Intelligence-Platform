@@ -18,7 +18,7 @@ class SensorTower(nn.Module):
         )
         # 2. Added Transformer layer for long-range temporal dependencies
         encoder_layer = nn.TransformerEncoderLayer(d_model=128, nhead=4, batch_first=True)
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2, enable_nested_tensor=False)
         
         # 3. Added non-linear projection head (SimCLR/CLIP style)
         self.pool = nn.AdaptiveAvgPool1d(1)
@@ -136,23 +136,22 @@ class TwoTowerAnomalyModel(nn.Module):
         Calculates the cosine distance. A high distance indicates the sensor
         and visual data disagree, implying a potential anomaly.
         """
-        with torch.no_grad():
-            sensor_emb = self.sensor_tower(sensor_data)
-            visual_emb = self.visual_tower(visual_data)
-            
-            sensor_emb = nn.functional.normalize(sensor_emb, p=2, dim=1)
-            visual_emb = nn.functional.normalize(visual_emb, p=2, dim=1)
-            
-            # Cosine similarity is dot product of L2 normalized vectors
-            # Similarity is 1 if identical, -1 if opposite
-            similarity = (sensor_emb * visual_emb).sum(dim=1)
-            
-            # Convert similarity to an anomaly score (0 to 1)
-            # High similarity = low anomaly (0)
-            # Low similarity = high anomaly (1)
-            anomaly_score = 1.0 - ((similarity + 1.0) / 2.0)
-            
-            return anomaly_score
+        sensor_emb = self.sensor_tower(sensor_data)
+        visual_emb = self.visual_tower(visual_data)
+        
+        sensor_emb = nn.functional.normalize(sensor_emb, p=2, dim=1)
+        visual_emb = nn.functional.normalize(visual_emb, p=2, dim=1)
+        
+        # Cosine similarity is dot product of L2 normalized vectors
+        # Similarity is 1 if identical, -1 if opposite
+        similarity = (sensor_emb * visual_emb).sum(dim=1)
+        
+        # Convert similarity to an anomaly score (0 to 1)
+        # High similarity = low anomaly (0)
+        # Low similarity = high anomaly (1)
+        anomaly_score = 1.0 - ((similarity + 1.0) / 2.0)
+        
+        return anomaly_score
 
 class VisualTowerClassifier(nn.Module):
     """

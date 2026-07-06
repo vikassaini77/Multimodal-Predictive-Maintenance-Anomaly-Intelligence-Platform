@@ -24,3 +24,6 @@ google-genai>=0.2.0
 tenacity>=8.2.3
 redis>=5.0.0
 websockets>=11.0.0
+onnx>=1.15.0
+onnxruntime>=1.16.0
+onnxoptimizer>=0.3.3
