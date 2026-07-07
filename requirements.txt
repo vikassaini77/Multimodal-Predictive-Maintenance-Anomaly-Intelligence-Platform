@@ -27,3 +27,6 @@ websockets>=11.0.0
 onnx>=1.15.0
 onnxruntime>=1.16.0
 onnxoptimizer>=0.3.3
+tensorrt>=8.6.0
+pycuda>=2024.1
+polygraphy>=0.49.0
