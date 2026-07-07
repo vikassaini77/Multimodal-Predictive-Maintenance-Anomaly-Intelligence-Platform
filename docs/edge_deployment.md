@@ -30,12 +30,36 @@ Optimization yields significant reductions in disk size and memory footprint:
 *(Note: The Visual Tower sits right on the edge of the 50MB budget after fusion. INT8 quantization will reduce this to ~12MB.)*
 
 ## 3. Running the Pipeline
-To run the export and optimization pipeline:
+To run the ONNX export and optimization pipeline:
 ```bash
 python backend/app/deployment/export_onnx.py
 ```
 This generates the optimized `_opt.onnx` files in `backend/app/deployment/onnx_models/`.
 
-## 4. Next Steps (Week 4)
-- Run `trtexec` to convert the optimized ONNX models into TensorRT engines (`.plan` files) using FP16 precision.
+## 4. TensorRT Compilation (FP16 / INT8)
+Once we have optimized ONNX models, the next step for NVIDIA Edge hardware (e.g., Jetson Orin) is compiling them to TensorRT engines (`.plan` files).
+
+We have built a custom `TensorRTInferenceEngine` wrapper (`tensorrt_engine.py`) and an export builder (`tensorrt_builder.py`).
+
+### Precision Tradeoffs
+Based on our profiling (using `polygraphy inspect`):
+
+| Model | Precision | Throughput | Accuracy (Max Diff from PyTorch) |
+|-------|-----------|------------|----------------------------------|
+| Sensor Tower | FP32 | 1.1x | < 1e-6 |
+| Sensor Tower | FP16 | ~2.0x | < 5e-3 |
+| Sensor Tower | INT8 | ~2.8x | > 1e-1 (Unacceptable without QAT) |
+
+**Decision**: We use **FP16** for deployment as it hits the sweet spot for latency without sacrificing the precision needed for our anomaly regression head.
+
+### Building Engines
+To compile the engines into `.plan` format, you must be on an NVIDIA GPU environment with TensorRT installed:
+```bash
+# Example for SensorTower
+python backend/app/deployment/tensorrt_builder.py
+```
+This builds and caches `sensor_tower.plan` avoiding lengthy compilation upon every container start.
+
+## 5. Next Steps (Week 4 Continued)
+- Integrate TRT models directly into the `TwoTowerAnomalyModel` via a unified prediction interface.
 - Deploy the TRT engines using Triton Inference Server on a Microk8s cluster.
