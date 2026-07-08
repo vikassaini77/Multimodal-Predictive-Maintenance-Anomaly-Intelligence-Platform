@@ -60,6 +60,28 @@ python backend/app/deployment/tensorrt_builder.py
 ```
 This builds and caches `sensor_tower.plan` avoiding lengthy compilation upon every container start.
 
-## 5. Next Steps (Week 4 Continued)
-- Integrate TRT models directly into the `TwoTowerAnomalyModel` via a unified prediction interface.
-- Deploy the TRT engines using Triton Inference Server on a Microk8s cluster.
+## 5. Jetson Nano Edge Inference Server
+We provide a lightweight gRPC Edge Inference Service that runs out-of-the-box on Jetson devices, utilizing the `TensorRTInferenceEngine`. 
+
+This server avoids HTTP/JSON serialization overhead and limits memory to fit perfectly within the 4GB Jetson Nano budget.
+
+### Deploying with Docker
+We provide a minimal `Dockerfile.edge` based on NVIDIA's L4T TensorRT images.
+```bash
+# 1. Build the image on your host or directly on the Jetson
+docker build -t multimodal-edge-inference -f Dockerfile.edge .
+
+# 2. Run the container with NVIDIA runtime
+docker run --runtime=nvidia -it --rm -p 50051:50051 multimodal-edge-inference
+```
+The gRPC server will start and expose port 50051 with reflection enabled.
+
+### Jetson Hardware Constraints
+To simulate these constraints on your local machine for testing, you can use our built-in simulator module which throttles CPU threads and caps memory to 4GB:
+```python
+from backend.app.edge.simulator import simulate_jetson_constraints
+simulate_jetson_constraints()
+```
+
+## 6. Next Steps (Final Integrations)
+- Orchestrate edge microservices alongside local logging via Docker Compose.
