@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package edge;
+
+// The inference service definition.
+service EdgeInference {
+  // Sends sensor data and image bytes, returns a risk score
+  rpc PredictAnomaly (InferenceRequest) returns (InferenceResponse) {}
+}
+
+// The request message containing the multimodal data.
+message InferenceRequest {
+  // Raw sensor data, e.g., a serialized numpy array or tensor (bytes)
+  bytes sensor_data = 1;
+  
+  // Raw image data, e.g., JPEG or PNG encoded bytes
+  bytes image_data = 2;
+}
+
+// The response message containing the anomaly score and optional explanation.
+message InferenceResponse {
+  // 0.0 to 1.0 probability of anomaly
+  float risk_score = 1;
+  
+  // High-level explanation (e.g., which modality triggered the anomaly)
+  string explanation = 2;
+}
