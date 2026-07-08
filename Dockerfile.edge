@@ -1,0 +1,38 @@
+# Base image from NVIDIA optimized for TensorRT deployments
+FROM nvcr.io/nvidia/tensorrt:23.10-py3
+
+# Set working directory
+WORKDIR /app
+
+# Install OS dependencies required for basic image processing (OpenCV etc. if needed) and gRPC
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python requirements (minimal for edge)
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    numpy \
+    Pillow \
+    grpcio \
+    grpcio-tools \
+    grpcio-reflection \
+    pycuda \
+    polygraphy
+
+# Copy only the Edge module and TRT models to keep image size small
+COPY backend/app/edge /app/backend/app/edge
+COPY backend/app/deployment/onnx_models /app/backend/app/deployment/onnx_models
+COPY backend/app/deployment/tensorrt_engine.py /app/backend/app/deployment/tensorrt_engine.py
+COPY backend/app/__init__.py /app/backend/app/__init__.py
+COPY backend/app/deployment/__init__.py /app/backend/app/deployment/__init__.py
+
+# Set PYTHONPATH so the imports work correctly
+ENV PYTHONPATH=/app
+
+# Expose gRPC port
+EXPOSE 50051
+
+# Start the edge server
+CMD ["python", "backend/app/edge/server.py"]
