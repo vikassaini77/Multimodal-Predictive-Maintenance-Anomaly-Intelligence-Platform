@@ -20,6 +20,7 @@
 ---
 
 ## 📑 Table of Contents
+- [User Interface](#-user-interface)
 - [Problem Statement](#-problem-statement)
 - [Solution Overview](#-solution-overview)
 - [Key Features](#-key-features)
@@ -41,6 +42,22 @@
 - [Contributing Guidelines](#-contributing-guidelines)
 - [License](#-license)
 - [Business Impact](#-business-impact)
+
+---
+
+## 💻 User Interface
+
+Our React-based monitoring dashboard provides operators with an intuitive, single-pane-of-glass view of the entire factory floor alongside an embedded diagnostic AI agent.
+
+### Live Telemetry & Factory Map
+Real-time status of all topological nodes (machines), updating via ultra-low latency WebSockets.
+
+![Factory Dashboard](https://raw.githubusercontent.com/vikassaini77/Multimodal-Predictive-Maintenance-Anomaly-Intelligence-Platform/main/frontend/src/assets/hero.png)
+
+### Explanatory AI Chat Interface
+When anomalies occur, the ReAct AI Agent can be queried in natural language. It streams responses token-by-token, displaying expandable **Thought/Action/Observation** reasoning traces, inline **GradCAM heatmaps**, and exact **source citations**.
+
+![Agent Chat Trace](https://raw.githubusercontent.com/vikassaini77/Multimodal-Predictive-Maintenance-Anomaly-Intelligence-Platform/main/frontend/src/assets/hero.png)
 
 ---
 
