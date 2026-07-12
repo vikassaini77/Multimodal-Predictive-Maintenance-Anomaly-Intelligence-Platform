@@ -22,9 +22,20 @@ def setup_logger(name: str = "industrial_mind") -> logging.Logger:
     if not logger.handlers:
         logger.setLevel(logging.INFO)
         
-        # Structured log format including trace_id
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - [trace_id=%(trace_id)s] - %(message)s'
+        from pythonjsonlogger import jsonlogger
+        
+        class CustomJsonFormatter(jsonlogger.JsonFormatter):
+            def add_fields(self, log_record, record, message_dict):
+                super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
+                if not log_record.get('timestamp'):
+                    log_record['timestamp'] = self.formatTime(record, self.datefmt)
+                if log_record.get('level'):
+                    log_record['level'] = log_record['level'].upper()
+                else:
+                    log_record['level'] = record.levelname
+
+        formatter = CustomJsonFormatter(
+            '%(timestamp)s %(level)s %(name)s %(message)s %(trace_id)s'
         )
         
         handler = logging.StreamHandler()
