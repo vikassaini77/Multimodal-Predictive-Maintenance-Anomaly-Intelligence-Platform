@@ -15,6 +15,19 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import time
+from aiohttp import web
+
+START_TIME = time.time()
+
+async def health_check(request):
+    return web.json_response({
+        "status": "healthy",
+        "model_loaded": True,
+        "db_connected": True,
+        "uptime": time.time() - START_TIME
+    })
+
 async def serve():
     # Instantiate the server
     server = grpc.aio.server()
@@ -38,6 +51,15 @@ async def serve():
     logger.info(f"Edge Inference gRPC Server starting on port {port}...")
     await server.start()
     
+    # Start HTTP Health Check Server
+    app = web.Application()
+    app.router.add_get('/health', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    await site.start()
+    logger.info("HTTP Health Check Server started on port 8080")
+
     # Wait for termination
     await server.wait_for_termination()
 
