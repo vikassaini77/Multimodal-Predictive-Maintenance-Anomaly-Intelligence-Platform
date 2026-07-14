@@ -1,32 +1,34 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to the **Multimodal Predictive Maintenance & Anomaly Intelligence Platform** will be documented in this file.
 
-## [v0.3.0] - End of Week 3
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2026-07-14
+
 ### Added
-- **RAG Pipeline**: Vectorized maintenance manuals with `pgvector` for context-grounded diagnosis.
-- **Autonomous Diagnostic Agent**: ReAct loop powered by Gemini 2.5 Flash with native tool-calling.
-- **Agent Tools Registry**: Decorator-driven tool auto-discovery with scoped permissions (`READ_ONLY`, `ACTION`).
-- **Safety Guardrails**: Action confirmation (human-in-the-loop) for critical alerts and rate-limiting.
-- **Conversational Memory**: Redis-backed session memory with automatic Gemini summarization for long dialogues.
-- **Evaluation Suite**: 15-scenario task success benchmark and Gemini-as-a-judge RAG Faithfulness scorer.
-- **Performance**: Cached singleton `SentenceTransformer` for zero cold-start latency.
-
-## [v0.2.0] - End of Week 2
-- **GraphSAGE Fault Propagation**: `HeteroEquipmentGNN` models machines, sensors, and conveyors to propagate fault risk.
-- **Explainability**: `GNNExplainer` integrated to retrieve subgraph contributions for anomaly predictions.
-- **FastAPI Endpoints**: `/graph/predict` and `/predict/full` endpoints for serving end-to-end multimodal graph predictions.
-- **Model Quantization**: FP16 mixed-precision inference via `torch.autocast`.
-- **Structured Logging**: Context-aware logging injecting `trace_id` for request tracing across the pipeline.
-- **Centralized Config**: `IndustrialMindConfig` managing dimensions, Redis URLs, and flags using Pydantic settings.
-- **Load Testing**: Locust suite for stress-testing the pipeline (100 concurrent requests).
+- **Two-Tower Multimodal AI Model**: Merged 1D sensor telemetry and 2D visual anomaly models.
+- **GraphSAGE Topology Learning**: Predicts cascading failures across interconnected factory nodes.
+- **ReAct Autonomous Agent**: Powered by Gemini 2.5 Flash, capable of querying sensors, viewing heatmaps, and retrieving OEM manuals.
+- **Pgvector RAG Pipeline**: Lightning-fast vector retrieval of chunked maintenance manuals.
+- **React Frontend Dashboard**: Live updating WebSockets, SVG factory map, and Agent Chat UI.
+- **Edge Deployment**: TensorRT + ONNX quantized inference service exposed via gRPC.
+- **Observability Stack**: Prometheus + Grafana metrics, JSON structured logging for Loki.
+- **Docker Compose Orchestration**: Single command boot-up sequence with internal health checks.
+- **GitHub Actions CI/CD**: Automatic builds and smoke testing on merge to `main`.
+- **Demo Mode**: 30-minute factory simulation script showcasing sensor drift and agentic resolution.
 
 ### Changed
-- Config parameters extracted from model definitions into global `settings`.
-- Redis caching falls back gracefully to `LRUCache`.
+- Refactored `logger.py` to use `python-json-logger`.
+- Transitioned initial simple graph models to full GraphSAGE architecture.
+- Upgraded TailwindCSS to v4.0 native `@theme` integration.
+- Switched from HTTP polling to Asyncio WebSockets for UI telemetry.
 
-## [v0.1.0] - End of Week 1
-### Added
-- Two-Tower model architecture (1D-CNN + Transformer for Sensor, EfficientNet for Visual).
-- NT-Xent Contrastive Loss for multimodal alignment.
-- Basic API structure.
+### Fixed
+- Addressed memory leaks in PyTorch DataLoader during extended testing.
+- Resolved race conditions in gRPC Edge initialization.
+- Fixed layout shifts in React Dashboard alert feed.
+
+### Security
+- Integrated authentication headers (`X-API-Key`) for Agent tooling queries.
+- Human-in-the-loop guardrails (approve/deny) for critical agent actions.
