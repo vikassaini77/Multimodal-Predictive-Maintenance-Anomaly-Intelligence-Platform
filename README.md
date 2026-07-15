@@ -2,16 +2,11 @@
 
 # 🏭 Multimodal Predictive Maintenance & Anomaly Intelligence Platform
 
-**An enterprise-grade, autonomous AI platform for industrial reliability.**
+**Built IndustrialMind AI — a multimodal predictive maintenance platform with Two-Tower learning, GraphSAGE, ReAct agent, and TensorRT FP16 edge deployment.**
 
-[![Python Version](https://img.shields.io/badge/python-3.13-blue.svg)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)]()
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)]()
-[![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?logo=PyTorch&logoColor=white)]()
-[![PostgreSQL](https://img.shields.io/badge/pgvector-316192?logo=postgresql&logoColor=white)]()
-[![Gemini](https://img.shields.io/badge/Gemini_2.5-8E75B2?logo=google&logoColor=white)]()
+[🎥 **Watch the 3-Minute Demo Video**](#) <!-- TODO: Replace with YouTube link -->
+
+[![Demo GIF Placeholder](https://via.placeholder.com/800x400.png?text=Upload+ScreenToGif+recording+here+and+update+this+link)](#) <!-- TODO: Replace with actual GIF -->
 
 *Detect anomalies, propagate fault risks across factory topologies, and deploy autonomous ReAct agents to diagnose machinery—all in real-time.*
 
