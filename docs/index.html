@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndustrialMind AI - Multimodal Predictive Maintenance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 antialiased selection:bg-blue-500 selection:text-white">
+    <div class="max-w-5xl mx-auto px-4 py-16">
+        <header class="text-center mb-16">
+            <h1 class="text-5xl font-extrabold tracking-tight mb-4 text-white">🏭 IndustrialMind AI</h1>
+            <p class="text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
+                Built IndustrialMind AI — a multimodal predictive maintenance platform with Two-Tower learning, GraphSAGE, ReAct agent, and TensorRT FP16 edge deployment.
+            </p>
+            <div class="mt-8 flex justify-center gap-4">
+                <a href="https://github.com/vikassaini77/Multimodal-Predictive-Maintenance-Anomaly-Intelligence-Platform" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-colors">
+                    View on GitHub
+                </a>
+                <a href="#demo" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold rounded-lg shadow border border-gray-700 transition-colors">
+                    Watch Demo
+                </a>
+            </div>
+        </header>
+
+        <section id="demo" class="mb-16">
+            <div class="aspect-w-16 aspect-h-9 bg-gray-800 rounded-xl overflow-hidden shadow-2xl border border-gray-700 flex items-center justify-center relative">
+                <!-- Replace src with actual YouTube embed link -->
+                <p class="text-gray-500 absolute z-0">[ YouTube Demo Embed Placeholder ]</p>
+                <!-- <iframe src="https://www.youtube.com/embed/YOUR_VIDEO_ID" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-full absolute top-0 left-0 z-10"></iframe> -->
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
+                <div class="text-3xl font-bold text-blue-400 mb-1">0.965</div>
+                <div class="text-sm text-gray-400 font-medium">AUROC (Fusion)</div>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
+                <div class="text-3xl font-bold text-green-400 mb-1">0.942</div>
+                <div class="text-sm text-gray-400 font-medium">F1 (GraphSAGE)</div>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
+                <div class="text-3xl font-bold text-purple-400 mb-1">45ms</div>
+                <div class="text-sm text-gray-400 font-medium">Edge Latency</div>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
+                <div class="text-3xl font-bold text-amber-400 mb-1">92%</div>
+                <div class="text-sm text-gray-400 font-medium">Agent Success</div>
+            </div>
+        </section>
+
+        <section class="prose prose-invert max-w-none">
+            <h2 class="text-3xl font-bold border-b border-gray-700 pb-2 mb-6">System Architecture</h2>
+            <div class="bg-gray-100 p-4 rounded-xl flex justify-center mb-8">
+                <!-- Fallback to raw text or SVG if needed, assuming docs/architecture.svg is in the same dir -->
+                <img src="architecture.svg" alt="Architecture Diagram" class="max-w-full h-auto rounded-lg shadow-sm invert-0 filter-none" style="filter: invert(1) hue-rotate(180deg);" />
+            </div>
+        </section>
+        
+        <footer class="mt-24 pt-8 border-t border-gray-800 text-center text-gray-500 text-sm">
+            &copy; 2026 Vikas Saini. Built over 28 Days.
+        </footer>
+    </div>
+</body>
+</html>
