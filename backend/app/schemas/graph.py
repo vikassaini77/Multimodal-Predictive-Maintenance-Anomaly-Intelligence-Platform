@@ -42,3 +42,11 @@ class FullPredictResponse(BaseModel):
     threshold: float
     cache_hit: bool
     explanations: Optional[List[NodeExplanation]] = None
+
+class AsyncPredictResponse(BaseModel):
+    job_id: str
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    status: str
+    result: Optional[FullPredictResponse] = None
