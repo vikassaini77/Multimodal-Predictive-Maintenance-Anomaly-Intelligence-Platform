@@ -103,59 +103,41 @@ async def predict_graph_faults(
         
     return predictions
 
-from backend.app.schemas.graph import FullPredictRequest, FullPredictResponse
-from torch_geometric.data import HeteroData
+from backend.app.schemas.graph import FullPredictRequest, FullPredictResponse, AsyncPredictResponse, JobStatusResponse
+from backend.app.worker import predict_full_pipeline_task
+from celery.result import AsyncResult
 
-@router.post("/predict/full", response_model=FullPredictResponse)
+@router.post("/predict/full", response_model=AsyncPredictResponse)
 async def predict_full_pipeline(
-    payload: FullPredictRequest,
-    models: ModelContainer = Depends(get_model_container)
+    payload: FullPredictRequest
 ):
     """
-    End-to-End Pipeline: Raw Input -> Towers -> Fusion -> GNN Context -> Calibrated Score
+    End-to-End Pipeline: Enqueues a Celery task for async inference
     """
     try:
-        # 1. Parse Graph
-        nx_graph = nx.DiGraph()
-        for node in payload.graph.nodes:
-            nx_graph.add_node(node.id, type=node.type)
-        for edge in payload.graph.edges:
-            source_type = nx_graph.nodes[edge.source]['type']
-            target_type = nx_graph.nodes[edge.target]['type']
-            edge_tuple = (source_type, edge.type, target_type)
-            nx_graph.add_edge(edge.source, edge.target, type=edge_tuple)
-            
-        # Convert to HeteroData (ignoring initial embeddings for this smoke test)
-        hetero_graph = convert_to_pyg_heterodata(nx_graph)
+        task = predict_full_pipeline_task.delay(payload.model_dump())
+        return AsyncPredictResponse(job_id=task.id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to enqueue task: {str(e)}")
+
+@router.get("/jobs/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(job_id: str):
+    """
+    Check the status of an async inference job and return results if ready.
+    """
+    try:
+        task_result = AsyncResult(job_id)
         
-        # 2. Parse Raw Data
-        sensor_tensor = None
-        if payload.sensor_data:
-            sensor_tensor = torch.tensor(payload.sensor_data, dtype=torch.float32)
-            
-        visual_tensor = None
-        if payload.visual_data:
-            visual_tensor = torch.tensor(payload.visual_data, dtype=torch.float32)
-            
-        # 3. Run Pipeline
-        result = models.pipeline.predict(
-            machine_id=payload.machine_id,
-            timestamp=payload.timestamp,
-            sensor_data=sensor_tensor,
-            visual_data=visual_tensor,
-            hetero_graph=hetero_graph
-        )
+        status = task_result.status
+        result_data = None
         
-        # For the sake of the smoke test, we mock explanations
-        # True explanations would come from GraphFaultExplainer
-        
-        return FullPredictResponse(
-            machine_id=result["machine_id"],
-            timestamp=result["timestamp"],
-            anomaly_score=result["anomaly_score"],
-            is_anomaly=result["is_anomaly"],
-            threshold=result["threshold"],
-            cache_hit=result["cache_hit"]
+        if status == 'SUCCESS':
+            result_data = FullPredictResponse(**task_result.result)
+            
+        return JobStatusResponse(
+            job_id=job_id,
+            status=status.lower(),
+            result=result_data
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Pipeline inference failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch job status: {str(e)}")
