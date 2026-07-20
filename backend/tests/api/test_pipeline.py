@@ -2,6 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 import time
 from backend.app.main import app
+from backend.app.celery_app import celery_app
+
+celery_app.conf.update(task_always_eager=True, task_store_eager_result=True)
 
 client = TestClient(app)
 
@@ -27,12 +30,21 @@ def test_predict_full_pipeline_success():
     assert response.status_code == 200
     
     data = response.json()
-    assert data["machine_id"] == "M1"
-    assert "anomaly_score" in data
-    assert "is_anomaly" in data
-    assert "threshold" in data
-    assert "cache_hit" in data
-    assert data["cache_hit"] == False # First time should be false
+    assert "job_id" in data
+    job_id = data["job_id"]
+    
+    # Poll job status
+    status_response = client.get(f"/graph/jobs/{job_id}")
+    assert status_response.status_code == 200
+    status_data = status_response.json()
+    
+    assert status_data["status"] == "success"
+    assert status_data["result"] is not None
+    assert status_data["result"]["machine_id"] == "M1"
+    assert "anomaly_score" in status_data["result"]
+    assert "is_anomaly" in status_data["result"]
+    assert "threshold" in status_data["result"]
+    assert status_data["result"]["cache_hit"] == False # First time should be false
 
 def test_predict_full_pipeline_caching():
     # Sending same payload twice should trigger cache hit
@@ -53,18 +65,24 @@ def test_predict_full_pipeline_caching():
     # First request
     r1 = client.post("/graph/predict/full", json=payload)
     assert r1.status_code == 200
-    assert r1.json()["cache_hit"] == False
+    job_id1 = r1.json()["job_id"]
+    res1 = client.get(f"/graph/jobs/{job_id1}").json()
+    assert res1["result"]["cache_hit"] == False
     
     # Second request
     r2 = client.post("/graph/predict/full", json=payload)
     assert r2.status_code == 200
-    assert r2.json()["cache_hit"] == True
+    job_id2 = r2.json()["job_id"]
+    res2 = client.get(f"/graph/jobs/{job_id2}").json()
+    assert res2["result"]["cache_hit"] == True
     
     # Third request with different timestamp window
     payload["timestamp"] = timestamp + 1000.0 # Way outside window
     r3 = client.post("/graph/predict/full", json=payload)
     assert r3.status_code == 200
-    assert r3.json()["cache_hit"] == False
+    job_id3 = r3.json()["job_id"]
+    res3 = client.get(f"/graph/jobs/{job_id3}").json()
+    assert res3["result"]["cache_hit"] == False
 
 def test_predict_full_pipeline_missing_modalities():
     # Only sending visual data
@@ -83,5 +101,10 @@ def test_predict_full_pipeline_missing_modalities():
     
     response = client.post("/graph/predict/full", json=payload)
     assert response.status_code == 200
-    data = response.json()
-    assert "anomaly_score" in data
+    job_id = response.json()["job_id"]
+    
+    status_response = client.get(f"/graph/jobs/{job_id}")
+    assert status_response.status_code == 200
+    status_data = status_response.json()
+    assert status_data["status"] == "success"
+    assert "anomaly_score" in status_data["result"]
