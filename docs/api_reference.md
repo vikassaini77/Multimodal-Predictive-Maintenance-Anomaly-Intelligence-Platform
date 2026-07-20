@@ -9,6 +9,71 @@ Accepts a heterogeneous graph state (machines, sensors, conveyors) and returns f
 
 ### `POST /graph/predict/full`
 End-to-End smoke test pipeline. Sends data through the Two-Tower fusion model, feeds it into the GraphSAGE model for topological context, and outputs a final calibrated anomaly score.
+**Note:** This endpoint has been updated to run asynchronously via Celery to prevent API blocking.
+
+**Response:**
+```json
+{
+  "job_id": "uuid-string"
+}
+```
+
+### `GET /graph/jobs/{job_id}`
+Check the status of an async prediction job.
+
+**Response (Pending):**
+```json
+{
+  "job_id": "uuid-string",
+  "status": "pending",
+  "result": null
+}
+```
+
+**Response (Success):**
+```json
+{
+  "job_id": "uuid-string",
+  "status": "success",
+  "result": {
+    "machine_id": "M1",
+    "timestamp": 1234567890.1,
+    "anomaly_score": 0.85,
+    "is_anomaly": true,
+    "threshold": 0.5,
+    "cache_hit": false
+  }
+}
+```
+
+#### Async Polling Pattern Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant Celery Worker
+    participant Redis Broker
+
+    Client->>API: POST /graph/predict/full (Payload)
+    API->>Redis Broker: Enqueue Task
+    API-->>Client: 200 OK { "job_id": "uuid" }
+    
+    Celery Worker->>Redis Broker: Pull Task
+    Celery Worker->>Celery Worker: Run GNN & Fusion ML models (Long running)
+    
+    loop Every 1s
+        Client->>API: GET /graph/jobs/uuid
+        API->>Redis Broker: Check Status
+        API-->>Client: 200 OK { "status": "pending" }
+    end
+    
+    Celery Worker->>Redis Broker: Store Result (SUCCESS)
+    
+    Client->>API: GET /graph/jobs/uuid
+    API->>Redis Broker: Check Status & Result
+    API-->>Client: 200 OK { "status": "success", "result": {...} }
+```
 
 ## Agent Endpoints (Day 20)
 
