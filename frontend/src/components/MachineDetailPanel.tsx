@@ -1,12 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MachineStats } from '../hooks/useAnomalyFeed';
-import { Activity, Camera, Cpu } from 'lucide-react';
+import { Activity, Camera, Cpu, Loader2, Play } from 'lucide-react';
+import clsx from 'clsx';
 
 interface MachineDetailPanelProps {
   machine: MachineStats | null;
 }
 
 export function MachineDetailPanel({ machine }: MachineDetailPanelProps) {
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [predictionResult, setPredictionResult] = useState<any>(null);
+
+  useEffect(() => {
+    // Reset prediction state when machine changes
+    setIsPredicting(false);
+    setPredictionResult(null);
+  }, [machine?.id]);
+
   if (!machine) {
     return (
       <div className="bg-surface rounded-lg p-4 border border-slate-700 shadow-xl h-full min-h-[300px] flex items-center justify-center text-slate-400">
@@ -18,8 +28,59 @@ export function MachineDetailPanel({ machine }: MachineDetailPanelProps) {
     );
   }
 
+  const handlePredict = async () => {
+    setIsPredicting(true);
+    setPredictionResult(null);
+    try {
+      const payload = {
+        machine_id: machine.id,
+        timestamp: Date.now() / 1000,
+        sensor_data: Array(14).fill(Array(10).fill(0.5)),
+        visual_data: Array(3).fill(Array(224).fill(Array(224).fill(0.1))),
+        graph: {
+            nodes: [{ id: machine.id, type: "machine", features: Array(64).fill(0.0) }],
+            edges: []
+        }
+      };
+
+      const res = await fetch('/api/graph/predict/full', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      const jobId = data.job_id;
+
+      // Poll for job status
+      const interval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/graph/jobs/${jobId}`);
+          const statusData = await statusRes.json();
+          if (statusData.status === 'success') {
+            clearInterval(interval);
+            setPredictionResult(statusData.result);
+            setIsPredicting(false);
+          } else if (statusData.status === 'failure' || statusData.status === 'revoked') {
+            clearInterval(interval);
+            setIsPredicting(false);
+            console.error("Job failed:", statusData);
+          }
+        } catch (err) {
+          clearInterval(interval);
+          setIsPredicting(false);
+          console.error("Polling error:", err);
+        }
+      }, 1000);
+
+    } catch (err) {
+      console.error(err);
+      setIsPredicting(false);
+    }
+  };
+
   return (
-    <div className="bg-surface rounded-lg p-4 border border-slate-700 shadow-xl h-full min-h-[300px] flex flex-col">
+    <div className="bg-surface rounded-lg p-4 border border-slate-700 shadow-xl h-full min-h-[300px] flex flex-col relative overflow-hidden">
       <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-700">
         <div>
           <h2 className="text-xl font-bold text-slate-100">{machine.name}</h2>
@@ -27,12 +88,23 @@ export function MachineDetailPanel({ machine }: MachineDetailPanelProps) {
         </div>
         <div className="text-right">
           <div className="text-2xl font-mono font-bold text-slate-100">
-            {(machine.currentScore * 100).toFixed(1)}%
+            {predictionResult ? (predictionResult.anomaly_score * 100).toFixed(1) : (machine.currentScore * 100).toFixed(1)}%
           </div>
-          <p className="text-xs text-slate-400">Current Risk</p>
+          <p className="text-xs text-slate-400">{predictionResult ? "GNN Calibrated Risk" : "Current Risk"}</p>
         </div>
       </div>
       
+      <div className="mb-4">
+        <button 
+          onClick={handlePredict}
+          disabled={isPredicting}
+          className="w-full bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 font-semibold py-2 px-4 rounded flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isPredicting ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+          {isPredicting ? "Running Full Diagnostics..." : "Run Full Diagnostics"}
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-4 flex-1">
         {/* Sensor Data Mock */}
         <div className="bg-background rounded p-3 border border-slate-700/50 flex flex-col">
