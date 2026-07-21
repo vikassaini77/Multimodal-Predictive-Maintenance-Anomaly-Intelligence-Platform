@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 import torch
 import networkx as nx
+import json
+import asyncio
+import redis
 from typing import List
 
 from backend.app.schemas.graph import GraphInput, RiskPrediction
@@ -119,6 +122,45 @@ async def predict_full_pipeline(
         return AsyncPredictResponse(job_id=task.id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to enqueue task: {str(e)}")
+
+@router.get("/jobs/failed")
+async def get_failed_jobs():
+    """
+    Fetch all failed jobs from the Redis dead letter queue (DLQ).
+    """
+    try:
+        from backend.app.celery_app import celery_app
+        r = redis.Redis.from_url(celery_app.conf.broker_url)
+        # Fetch all items from the list 'dlq'
+        jobs_json = r.lrange("dlq", 0, -1)
+        jobs = [json.loads(j) for j in jobs_json]
+        return {"status": "success", "failed_jobs": jobs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch DLQ: {str(e)}")
+
+@router.websocket("/ws/alerts")
+async def alerts_websocket(websocket: WebSocket):
+    """
+    WebSocket endpoint that streams DLQ alerts from Redis Pub/Sub.
+    """
+    await websocket.accept()
+    from backend.app.celery_app import celery_app
+    r = redis.Redis.from_url(celery_app.conf.broker_url)
+    pubsub = r.pubsub()
+    pubsub.subscribe("dlq_alerts")
+    
+    try:
+        while True:
+            # We use non-blocking get_message or asyncio sleep loop
+            message = pubsub.get_message(ignore_subscribe_messages=True)
+            if message and message["type"] == "message":
+                await websocket.send_text(message["data"].decode("utf-8"))
+            await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        pubsub.unsubscribe("dlq_alerts")
+    except Exception as e:
+        pubsub.unsubscribe("dlq_alerts")
+        print(f"Alerts WebSocket error: {e}")
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
