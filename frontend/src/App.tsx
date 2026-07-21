@@ -1,22 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAnomalyFeed } from './hooks/useAnomalyFeed';
 import { FactoryMap } from './components/FactoryMap';
 import { AlertFeed } from './components/AlertFeed';
 import { RiskScoreChart } from './components/RiskScoreChart';
 import { MachineDetailPanel } from './components/MachineDetailPanel';
 import { AgentChatPanel } from './components/chat/AgentChatPanel';
-import { Activity, Radio, MessageSquareText } from 'lucide-react';
+import { FailedJobsPanel } from './components/FailedJobsPanel';
+import { Activity, Radio, MessageSquareText, AlertOctagon, X } from 'lucide-react';
 import clsx from 'clsx';
 
 function App() {
   const { alerts, machines, connectionStatus } = useAnomalyFeed('ws://localhost:8000/ws/edge-feed');
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
+  const [toastAlert, setToastAlert] = useState<{ id: string, message: string } | null>(null);
+
+  useEffect(() => {
+    // Connect to alerts WebSocket
+    const ws = new WebSocket('ws://localhost:8000/graph/ws/alerts');
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'dlq_alert') {
+          setToastAlert({
+            id: data.task_id,
+            message: `Background Job Failed: ${data.error}`
+          });
+          // Dispatch custom event to tell FailedJobsPanel to refresh
+          window.dispatchEvent(new Event('refresh-dlq'));
+          
+          // Auto-hide toast after 5s
+          setTimeout(() => setToastAlert(null), 5000);
+        }
+      } catch (err) {
+        console.error("Failed to parse alert", err);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   const selectedMachine = selectedMachineId ? machines[selectedMachineId] : null;
 
   return (
-    <div className="min-h-screen bg-background text-slate-200 p-6 font-sans flex flex-col">
+    <div className="min-h-screen bg-background text-slate-200 p-6 font-sans flex flex-col relative overflow-hidden">
+      {/* Toast Notification */}
+      {toastAlert && (
+        <div className="absolute top-4 right-4 z-50 animate-slide-in-right">
+          <div className="bg-red-900 border border-red-500 text-white px-4 py-3 rounded-lg shadow-2xl flex items-start gap-3 max-w-sm">
+            <AlertOctagon className="shrink-0 mt-0.5 text-red-300" size={20} />
+            <div className="flex-1">
+              <h4 className="font-bold text-sm">Task Moved to DLQ</h4>
+              <p className="text-xs text-red-200 mt-1 break-words">{toastAlert.message}</p>
+            </div>
+            <button onClick={() => setToastAlert(null)} className="text-red-300 hover:text-white">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex justify-between items-center mb-6 pb-4 border-b border-slate-700">
         <div className="flex items-center gap-3">
@@ -68,30 +114,32 @@ function App() {
         
         {/* Left Column: Factory Map & Chart */}
         <div className={clsx(
-          "flex flex-col gap-6 transition-all duration-300",
+          "flex flex-col gap-6 transition-all duration-300 h-full overflow-y-auto pr-2",
           showChat ? "col-span-12 lg:col-span-5" : "col-span-12 lg:col-span-8"
         )}>
-          <div className="flex-1">
+          <div>
             <FactoryMap 
               machines={machines} 
               selectedMachineId={selectedMachineId} 
               onSelectMachine={setSelectedMachineId} 
             />
           </div>
-          <div className={clsx(showChat ? "h-[200px]" : "h-auto")}>
+          <div className={clsx(showChat ? "h-[200px]" : "h-[300px]")}>
             <RiskScoreChart machine={selectedMachine} />
           </div>
+          
+          <FailedJobsPanel />
         </div>
 
         {/* Middle Column: Alerts & Details (Hidden or shrinked when chat is open) */}
         <div className={clsx(
-          "flex flex-col gap-6 transition-all duration-300",
+          "flex flex-col gap-6 transition-all duration-300 h-full overflow-y-auto pr-2",
           showChat ? "col-span-12 lg:col-span-3" : "col-span-12 lg:col-span-4"
         )}>
-          <div className="flex-1">
+          <div className="flex-1 min-h-[300px]">
             <AlertFeed alerts={alerts} />
           </div>
-          <div className="h-[300px]">
+          <div className="shrink-0 h-[320px]">
             <MachineDetailPanel machine={selectedMachine} />
           </div>
         </div>
