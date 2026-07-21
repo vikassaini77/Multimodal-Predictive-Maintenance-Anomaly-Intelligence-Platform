@@ -1,12 +1,14 @@
 <div align="center">
 
+<img src="docs/assets/platform_logo.png" alt="IndustrialMind Logo" width="200" />
+
 # 🏭 Multimodal Predictive Maintenance & Anomaly Intelligence Platform
 
 **Built IndustrialMind AI — a multimodal predictive maintenance platform with Two-Tower learning, GraphSAGE, ReAct agent, and TensorRT FP16 edge deployment.**
 
 [🎥 **Watch the 3-Minute Demo Video**](#) <!-- TODO: Replace with YouTube link -->
 
-[![Demo GIF Placeholder](https://via.placeholder.com/800x400.png?text=Upload+ScreenToGif+recording+here+and+update+this+link)](#) <!-- TODO: Replace with actual GIF -->
+<img src="docs/assets/dashboard_mockup.png" alt="IndustrialMind Demo" width="800" />
 
 *Detect anomalies, propagate fault risks across factory topologies, and deploy autonomous ReAct agents to diagnose machinery—all in real-time.*
 
@@ -55,12 +57,12 @@ Our React-based monitoring dashboard provides operators with an intuitive, singl
 ### Live Telemetry & Factory Map
 Real-time status of all topological nodes (machines), updating via ultra-low latency WebSockets.
 
-![Factory Dashboard](https://raw.githubusercontent.com/vikassaini77/Multimodal-Predictive-Maintenance-Anomaly-Intelligence-Platform/main/frontend/src/assets/hero.png)
+![Factory Dashboard](docs/assets/dashboard_mockup.png)
 
 ### Explanatory AI Chat Interface
 When anomalies occur, the ReAct AI Agent can be queried in natural language. It streams responses token-by-token, displaying expandable **Thought/Action/Observation** reasoning traces, inline **GradCAM heatmaps**, and exact **source citations**.
 
-![Agent Chat Trace](https://raw.githubusercontent.com/vikassaini77/Multimodal-Predictive-Maintenance-Anomaly-Intelligence-Platform/main/frontend/src/assets/hero.png)
+![Agent Chat Trace](docs/assets/agent_chat_mockup.png)
 
 ---
 
