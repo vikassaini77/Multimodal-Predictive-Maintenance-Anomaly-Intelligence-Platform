@@ -1,10 +1,47 @@
 import networkx as nx
 import torch
+import json
+import redis
+import time
+from celery import Task
 from backend.app.celery_app import celery_app
 from backend.app.api.dependencies import get_model_container
 from backend.app.data.factory_graph import convert_to_pyg_heterodata
 
-@celery_app.task(name="predict_full_pipeline_task", bind=True)
+redis_client = redis.Redis.from_url(celery_app.conf.broker_url)
+
+class DLQTask(Task):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        # Push job details to the dead letter queue (dlq)
+        job_info = {
+            "task_id": task_id,
+            "failed_at": time.time(),
+            "args": args,
+            "kwargs": kwargs,
+            "exc": str(exc),
+            "traceback": str(einfo.traceback) if einfo else None
+        }
+        job_json = json.dumps(job_info)
+        redis_client.lpush("dlq", job_json)
+        
+        # Publish alert to WebSocket listeners
+        alert = {
+            "type": "dlq_alert",
+            "task_id": task_id,
+            "error": str(exc)
+        }
+        redis_client.publish("dlq_alerts", json.dumps(alert))
+        
+        super().on_failure(exc, task_id, args, kwargs, einfo)
+
+@celery_app.task(
+    name="predict_full_pipeline_task", 
+    bind=True, 
+    base=DLQTask,
+    autoretry_for=(Exception,), 
+    max_retries=3, 
+    retry_backoff=True
+)
 def predict_full_pipeline_task(self, payload_dict: dict):
     # Retrieve the singleton model container
     models = get_model_container()
