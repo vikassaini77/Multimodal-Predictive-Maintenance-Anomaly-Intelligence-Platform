@@ -100,6 +100,15 @@ services:
       celery_worker:
         condition: service_started
 
+  celery_exporter:
+    image: danihodovic/celery-exporter
+    command: --broker-url=redis://redis:6379/0
+    ports:
+      - "9808:9808"
+    depends_on:
+      redis:
+        condition: service_healthy
+
   edge:
     build:
       context: .
