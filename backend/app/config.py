@@ -34,6 +34,12 @@ class IndustrialMindConfig(BaseSettings):
     # ML Inference
     enable_fp16: bool = True
     
+    # JWT Auth
+    jwt_private_key_path: str = ".certs/private_key.pem"
+    jwt_public_key_path: str = ".certs/public_key.pem"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'
