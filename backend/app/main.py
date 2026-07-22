@@ -1,6 +1,6 @@
 import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from backend.app.api.router import router as graph_router
 from backend.app.config import settings
 from backend.app.utils.logger import trace_id_ctx_var, logger
@@ -33,9 +33,12 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
 app.add_middleware(TraceIDMiddleware)
 
 from backend.app.api.agent_router import router as agent_router
+from backend.app.api.auth import router as auth_router
+from backend.app.core.security import get_current_user
 
-app.include_router(graph_router, prefix="/graph", tags=["graph"])
-app.include_router(agent_router, prefix="/agent", tags=["agent"])
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(graph_router, prefix="/graph", tags=["graph"], dependencies=[Depends(get_current_user)])
+app.include_router(agent_router, prefix="/agent", tags=["agent"], dependencies=[Depends(get_current_user)])
 
 START_TIME = time.time()
 
