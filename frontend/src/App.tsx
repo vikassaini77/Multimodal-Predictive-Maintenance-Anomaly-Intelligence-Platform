@@ -6,10 +6,12 @@ import { RiskScoreChart } from './components/RiskScoreChart';
 import { MachineDetailPanel } from './components/MachineDetailPanel';
 import { AgentChatPanel } from './components/chat/AgentChatPanel';
 import { FailedJobsPanel } from './components/FailedJobsPanel';
-import { Activity, Radio, MessageSquareText, AlertOctagon, X } from 'lucide-react';
+import { Login } from './components/Login';
+import { Activity, Radio, MessageSquareText, AlertOctagon, X, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { alerts, machines, connectionStatus } = useAnomalyFeed('ws://localhost:8000/ws/edge-feed');
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
@@ -41,7 +43,20 @@ function App() {
     return () => {
       ws.close();
     };
-  }, []);
+  }, [isAuthenticated]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.error(e);
+    }
+    setIsAuthenticated(false);
+  };
+
+  if (!isAuthenticated) {
+    return <Login onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   const selectedMachine = selectedMachineId ? machines[selectedMachineId] : null;
 
@@ -106,6 +121,14 @@ function App() {
               </span>
             </div>
           </div>
+          
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-red-900/50 hover:bg-red-900/20 text-red-400 hover:text-red-300 transition-colors"
+          >
+            <LogOut size={16} />
+            <span className="text-sm font-semibold">Logout</span>
+          </button>
         </div>
       </header>
 
