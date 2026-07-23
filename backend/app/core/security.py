@@ -6,6 +6,12 @@ from fastapi import Request, HTTPException, status, Depends
 from passlib.context import CryptContext
 from backend.app.config import settings
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Configure Redis-backed Limiter
+limiter = Limiter(key_func=get_remote_address, storage_uri=settings.redis_url)
+
 # Load keys
 try:
     with open(settings.jwt_private_key_path, 'r') as f:
