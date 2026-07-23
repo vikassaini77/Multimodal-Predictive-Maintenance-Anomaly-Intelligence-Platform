@@ -10,11 +10,16 @@ from backend.app.schemas.graph import GraphInput, RiskPrediction
 from backend.app.api.dependencies import get_model_container, ModelContainer
 from backend.app.data.factory_graph import convert_to_pyg_heterodata
 from backend.app.eval.explainer import GraphFaultExplainer
+from fastapi import Request
+from backend.app.core.security import limiter
 
 router = APIRouter()
 
+
 @router.post("/predict", response_model=List[RiskPrediction])
-async def predict_graph_faults(
+@limiter.limit("100/minute")
+def predict_graph_faults(
+    request: Request,
     payload: GraphInput,
     models: ModelContainer = Depends(get_model_container)
 ):
@@ -111,7 +116,9 @@ from backend.app.worker import predict_full_pipeline_task
 from celery.result import AsyncResult
 
 @router.post("/predict/full", response_model=AsyncPredictResponse)
-async def predict_full_pipeline(
+@limiter.limit("100/minute")
+def predict_full_pipeline(
+    request: Request,
     payload: FullPredictRequest
 ):
     """
