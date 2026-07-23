@@ -109,3 +109,45 @@ Real-time conversational endpoint for interacting with the diagnostic agent.
    ```json
    {"type": "final_answer", "content": "The machine looks fine, no alerts found."}
    ```
+
+## Rate Limiting & Security (Day 32)
+
+All endpoints are protected by `slowapi` rate limits using a Redis sliding window.
+
+- **Inference & Agent Routes:** Limited to `100 requests per minute`.
+- **Metadata & Informational Routes (e.g. `/health`):** Limited to `1000 requests per minute`.
+
+When a rate limit is exceeded, the server returns a `429 Too Many Requests` status code with the following JSON body and a `Retry-After` header indicating the wait time in seconds:
+```json
+{
+  "error": "Rate limit exceeded: 100 per 1 minute"
+}
+```
+
+## Audit Logs (Day 32)
+
+### `GET /audit/logs`
+Retrieves a structured audit log of all ReAct agent tool calls and alerts dispatched by the system, ensuring compliance tracking.
+
+**Query Parameters:**
+- `machine_id` (string, optional): Filter by a specific machine.
+- `severity` (string, optional): Filter by alert severity (e.g., `critical`).
+- `date` (string YYYY-MM-DD, optional): Filter logs for a specific day.
+- `limit` (int, default=100, max=1000): Pagination limit.
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid-string",
+    "timestamp": "2026-07-23T12:00:00+00:00",
+    "actor": "ReActAgent",
+    "action": "dispatch_alert",
+    "machine_id": "M-1",
+    "severity": "critical",
+    "inputs": {"machine_id": "M-1", "severity": "critical", "message": "..."},
+    "outputs": {"status": "success"},
+    "outcome": "success"
+  }
+]
+```
