@@ -83,6 +83,25 @@ class ReActAgent:
                         # Convert args (protobuf struct) to dict if needed, genai SDK usually returns dict-like
                         args_dict = dict(args) if hasattr(args, 'keys') else args
                         observation = self.tools[tool_name].run(**args_dict)
+                        
+                        # Identify outcome and severity
+                        outcome = "success"
+                        if isinstance(observation, str) and "status" in observation and "blocked" in observation:
+                            outcome = "blocked"
+                        if isinstance(observation, str) and "Error" in observation:
+                            outcome = "error"
+                            
+                        # Audit Log the execution
+                        from backend.app.core.audit import log_audit_event
+                        log_audit_event(
+                            actor="ReActAgent",
+                            action=tool_name,
+                            inputs=args_dict,
+                            outputs={"result": observation},
+                            outcome=outcome,
+                            machine_id=args_dict.get("machine_id"),
+                            severity=args_dict.get("severity")
+                        )
                     except Exception as e:
                         observation = f"Error executing tool: {str(e)}"
                         
