@@ -8,6 +8,8 @@ from backend.app.agent.memory import ConversationMemory
 from backend.app.agent.react import ReActAgent
 from backend.app.agent.registry import PermissionScope
 from backend.app.agent.serializer import AgentTraceSerializer
+from fastapi import Request
+from backend.app.core.security import limiter
 
 router = APIRouter()
 memory = ConversationMemory(ttl_seconds=1800, max_turns=10)
@@ -17,7 +19,8 @@ class SessionResponse(BaseModel):
     message: str
 
 @router.post("/session/new", response_model=SessionResponse)
-async def create_session():
+@limiter.limit("100/minute")
+async def create_session(request: Request):
     """Creates a new agent conversation session."""
     session_id = str(uuid.uuid4())
     # Initialize empty history
@@ -25,7 +28,8 @@ async def create_session():
     return SessionResponse(session_id=session_id, message="Session created.")
 
 @router.post("/session/{session_id}/end")
-async def end_session(session_id: str):
+@limiter.limit("100/minute")
+async def end_session(request: Request, session_id: str):
     """Tears down a session and clears memory."""
     memory.clear(session_id)
     return {"status": "success", "message": f"Session {session_id} ended."}
