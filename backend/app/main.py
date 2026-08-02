@@ -7,6 +7,7 @@ from backend.app.utils.logger import trace_id_ctx_var, logger
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from backend.app.core.security import limiter
 
 import time
@@ -27,6 +28,20 @@ def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded)
     # _rate_limit_exceeded_handler already adds Retry-After, but we enforce it here manually
     response.headers["Retry-After"] = str(exc.headers.get("Retry-After", 60)) if hasattr(exc, "headers") else "60"
     return response
+
+@app.exception_handler(RequestValidationError)
+def custom_validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for error in exc.errors():
+        field = " -> ".join(str(loc) for loc in error.get("loc", []))
+        errors.append({
+            "field": field,
+            "error": error.get("msg")
+        })
+    return JSONResponse(
+        status_code=422,
+        content={"message": "Validation failed", "details": errors}
+    )
 
 # Start Prometheus metrics collection
 Instrumentator().instrument(app).expose(app)
