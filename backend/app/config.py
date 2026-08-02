@@ -17,6 +17,10 @@ class IndustrialMindConfig(BaseSettings):
     redis_port: int = 6379
     cache_ttl_seconds: int = 5
     
+    @property
+    def redis_url(self) -> str:
+        return f"redis://{self.redis_host}:{self.redis_port}/0"
+    
     # Postgres Vector DB
     pg_host: str = "localhost"
     pg_port: int = 5432
