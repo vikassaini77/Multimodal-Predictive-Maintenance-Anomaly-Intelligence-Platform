@@ -34,3 +34,20 @@ docker exec -it <redis_container_id> redis-cli DEL dlq
 ```
 
 *Future Enhancement:* We plan to add a "Requeue" button next to each job in the UI which will POST to a new `/jobs/failed/{task_id}/retry` endpoint, popping the item from the `dlq` list and pushing it back into Celery.
+
+## Known Chaos Failure Modes & Fallbacks
+
+1. **GPU Out of Memory (OOM):**
+   - **Behavior:** The inference pipeline automatically detects `CUDA out of memory`. It clears the GPU cache, transfers models and data to the CPU, and re-runs inference.
+   - **Client Impact:** The API responds successfully (200 OK), but the payload includes `"latency_warning": true`.
+   - **Action:** If this occurs frequently, monitor batch sizes and consider scaling up GPU resources or adding a dedicated queue limit.
+
+2. **Database (PostgreSQL) Unreachable:**
+   - **Behavior:** The `db_circuit_breaker` trips after 3 consecutive connection failures. Subsequent requests fail fast without waiting for timeouts.
+   - **Client Impact:** The API immediately returns a `503 Service Unavailable` with a message "Circuit Breaker OPEN".
+   - **Action:** Check PostgreSQL container health and network connectivity. The circuit breaker automatically tests recovery (half-open) after 30 seconds.
+
+3. **Redis Unreachable:**
+   - **Behavior:** `slowapi` rate limiter is configured to swallow errors. If Redis drops, the rate limiter fails open.
+   - **Client Impact:** All requests pass without false `429 Too Many Requests` errors.
+   - **Action:** Restart Redis container. Note that during downtime, the API is vulnerable to abuse as rate limits are inactive.
