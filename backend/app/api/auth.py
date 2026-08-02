@@ -15,7 +15,7 @@ router = APIRouter()
 # In a real application, fetch this from PostgreSQL
 DUMMY_USER = {
     "username": "admin",
-    "password_hash": get_password_hash("password123"),
+    "password_hash": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjIQqiRQYq", # bcrypt hash of 'password123'
     "role": "admin"
 }
 
