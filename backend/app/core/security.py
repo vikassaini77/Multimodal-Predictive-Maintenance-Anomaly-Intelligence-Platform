@@ -10,7 +10,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 # Configure Redis-backed Limiter
-limiter = Limiter(key_func=get_remote_address, storage_uri=settings.redis_url)
+limiter = Limiter(key_func=get_remote_address, storage_uri=settings.redis_url, swallow_errors=True)
 
 # Load keys
 try:
