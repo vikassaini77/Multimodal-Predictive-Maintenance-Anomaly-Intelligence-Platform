@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from backend.app.config import settings
 
@@ -9,9 +9,17 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 from backend.app.db.models import Base
 # Create all tables (in a real production app you would use Alembic migrations)
 Base.metadata.create_all(bind=engine)
+
+from backend.app.core.breaker import db_circuit_breaker
+
+@db_circuit_breaker
+def _ping_db(db):
+    db.execute(text("SELECT 1"))
+
 def get_db():
     db = SessionLocal()
     try:
+        _ping_db(db)
         yield db
     finally:
         db.close()
