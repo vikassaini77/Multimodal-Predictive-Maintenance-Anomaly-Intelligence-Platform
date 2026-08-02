@@ -149,23 +149,42 @@ class InferencePipeline:
             cached_result["cache_hit"] = True
             return cached_result
             
-        device_type = self.device.type if self.device.type in ["cuda", "cpu"] else "cpu"
-        
-        with torch.autocast(device_type=device_type, enabled=settings.enable_fp16):
-            # 2. Extract & Fuse Embeddings for the target machine
-            fused_embedding = self.process_machine_batch([sensor_data], [visual_data]) # (1, 256)
-            
-            hetero_graph = hetero_graph.to(self.device)
-            
-            if 'machine' in hetero_graph.node_types:
-                pass 
+        lower_confidence = (visual_data is None)
+        latency_warning = False
+
+        def _run_forward():
+            device_type = self.device.type if self.device.type in ["cuda", "cpu"] else "cpu"
+            with torch.autocast(device_type=device_type, enabled=settings.enable_fp16):
+                # 2. Extract & Fuse Embeddings for the target machine
+                fused_embedding = self.process_machine_batch(
+                    [sensor_data.to(self.device) if sensor_data is not None else None], 
+                    [visual_data.to(self.device) if visual_data is not None else None]
+                ) # (1, 256)
                 
-            # 3. GNN Contextualization
-            node_embeddings = self.gnn_model(hetero_graph.x_dict, hetero_graph.edge_index_dict)
-            
-            # 4. Predict
-            raw_logit = self.scorer_head(fused_embedding, return_probs=False) # (1,)
-            prob = torch.sigmoid(raw_logit).item()
+                graph = hetero_graph.to(self.device)
+                
+                # 3. GNN Contextualization
+                node_embeddings = self.gnn_model(graph.x_dict, graph.edge_index_dict)
+                
+                # 4. Predict
+                raw_logit = self.scorer_head(fused_embedding, return_probs=False) # (1,)
+                return torch.sigmoid(raw_logit).item()
+
+        try:
+            prob = _run_forward()
+        except RuntimeError as e:
+            if "CUDA out of memory" in str(e) or "out of memory" in str(e).lower():
+                latency_warning = True
+                print("CUDA OOM caught! Falling back to CPU for inference.")
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                self.device = torch.device("cpu")
+                self.fusion_model = self.fusion_model.to("cpu")
+                self.gnn_model = self.gnn_model.to("cpu")
+                self.scorer_head = self.scorer_head.to("cpu")
+                prob = _run_forward()
+            else:
+                raise e
         
         # 5. Threshold Calibration
         # We use a ThresholdTuner or PlattScaler to get the final score
@@ -181,7 +200,9 @@ class InferencePipeline:
             "anomaly_score": float(calibrated_score),
             "is_anomaly": bool(is_anomaly),
             "threshold": float(self.threshold_tuner.optimal_threshold),
-            "cache_hit": False
+            "cache_hit": False,
+            "lower_confidence": lower_confidence,
+            "latency_warning": latency_warning
         }
         
         # Cache and return
