@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
+import time
+import math
 
 class NodeInput(BaseModel):
     id: str
@@ -34,6 +36,32 @@ class FullPredictRequest(BaseModel):
     visual_data: Optional[List[List[List[float]]]] = Field(None, description="Raw visual data [channels, H, W]")
     graph: GraphInput = Field(..., description="Local neighborhood graph topology")
 
+    @field_validator("timestamp")
+    def validate_timestamp(cls, v):
+        current_time = time.time()
+        # Allow a small buffer (e.g., 5 seconds) for slight clock drifts
+        if v > current_time + 5.0:
+            raise ValueError(f"Timestamp {v} is in the future (current time: {current_time})")
+        return v
+
+    @field_validator("sensor_data")
+    def validate_sensor_data(cls, v):
+        if v is None:
+            return v
+        if not v:
+            raise ValueError("Sensor data cannot be empty if provided")
+            
+        for i, channel in enumerate(v):
+            if not channel:
+                raise ValueError(f"Sensor channel {i} is empty")
+            for j, val in enumerate(channel):
+                if math.isnan(val):
+                    raise ValueError(f"NaN value detected at channel {i}, step {j}")
+                # Assuming reasonable normalized ranges, or physical bounds
+                if val < -10000.0 or val > 10000.0:
+                    raise ValueError(f"Value {val} out of range at channel {i}, step {j}")
+        return v
+
 class FullPredictResponse(BaseModel):
     machine_id: str
     timestamp: float
@@ -42,6 +70,8 @@ class FullPredictResponse(BaseModel):
     threshold: float
     cache_hit: bool
     explanations: Optional[List[NodeExplanation]] = None
+    lower_confidence: bool = False
+    latency_warning: bool = False
 
 class AsyncPredictResponse(BaseModel):
     job_id: str
