@@ -18,23 +18,24 @@ class RateLimiter:
     def __init__(self, window_seconds: int = 600):
         self.window_seconds = window_seconds
 
-    def check_and_record(self, machine_id: str) -> bool:
-        """Returns True if action is allowed, False if rate limited."""
-        key = f"alert_rate_limit:{machine_id}"
-        current_time = int(time.time())
+    def check_and_record(self, machine_id: str, fault_type: str = "general") -> int:
+        """Returns the duplicate count (1 means first time, >1 means deduplicated)."""
+        key = f"alert_dedup:{machine_id}:{fault_type}"
         
         if redis_client:
-            last_alert = redis_client.get(key)
-            if last_alert and (current_time - int(last_alert)) < self.window_seconds:
-                return False
-            redis_client.set(key, current_time, ex=self.window_seconds)
-            return True
+            count = redis_client.incr(key)
+            if count == 1:
+                redis_client.expire(key, self.window_seconds)
+            return count
         else:
-            last_alert = _in_memory_cache.get(key)
-            if last_alert and (current_time - int(last_alert)) < self.window_seconds:
-                return False
-            _in_memory_cache[key] = current_time
-            return True
+            current_time = int(time.time())
+            # Simple in-memory fallback for local testing
+            record = _in_memory_cache.get(key)
+            if record and (current_time - record['time']) < self.window_seconds:
+                record['count'] += 1
+                return record['count']
+            _in_memory_cache[key] = {'time': current_time, 'count': 1}
+            return 1
 
 class ActionGuard:
     @staticmethod
