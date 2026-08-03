@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request, Depends
 from backend.app.api.router import router as graph_router
 from backend.app.config import settings
 from backend.app.utils.logger import trace_id_ctx_var, logger
+from backend.app.db.session import init_db
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
@@ -64,12 +65,16 @@ app.add_middleware(TraceIDMiddleware)
 from backend.app.api.agent_router import router as agent_router
 from backend.app.api.auth import router as auth_router
 from backend.app.api.audit_router import router as audit_router
+from backend.app.api.maintenance_router import router as maintenance_router
 from backend.app.core.security import get_current_user
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(graph_router, prefix="/graph", tags=["graph"], dependencies=[Depends(get_current_user)])
 app.include_router(agent_router, prefix="/agent", tags=["agent"], dependencies=[Depends(get_current_user)])
 app.include_router(audit_router, prefix="/audit", tags=["audit"], dependencies=[Depends(get_current_user)])
+app.include_router(maintenance_router, prefix="/maintenance", tags=["maintenance"], dependencies=[Depends(get_current_user)])
+
+init_db()
 
 START_TIME = time.time()
 
@@ -82,3 +87,26 @@ def health_check(request: Request):
         "db_connected": True,
         "uptime": time.time() - START_TIME
     }
+
+from fastapi import WebSocket, WebSocketDisconnect
+import redis
+import asyncio
+
+@app.websocket("/ws/edge-feed")
+async def edge_feed_websocket(websocket: WebSocket):
+    await websocket.accept()
+    r = redis.Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=True)
+    pubsub = r.pubsub()
+    pubsub.subscribe("edge_alerts")
+    
+    try:
+        while True:
+            message = pubsub.get_message(ignore_subscribe_messages=True)
+            if message and message["type"] == "message":
+                await websocket.send_text(message["data"])
+            await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        pubsub.unsubscribe("edge_alerts")
+    except Exception as e:
+        pubsub.unsubscribe("edge_alerts")
+        print(f"Edge Feed WebSocket error: {e}")

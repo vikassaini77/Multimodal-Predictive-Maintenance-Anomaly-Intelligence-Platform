@@ -7,8 +7,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Import models to ensure they are registered with Base
 from backend.app.db.models import Base
-# Create all tables (in a real production app you would use Alembic migrations)
-Base.metadata.create_all(bind=engine)
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
 
 from backend.app.core.breaker import db_circuit_breaker
 
