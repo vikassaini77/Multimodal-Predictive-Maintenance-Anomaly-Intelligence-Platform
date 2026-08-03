@@ -6,10 +6,12 @@ export type Severity = 'info' | 'warning' | 'critical';
 export interface Alert {
   id: string;
   machineId: string;
+  zone: string;
   timestamp: string;
   score: number;
   message: string;
   severity: Severity;
+  duplicateCount?: number;
 }
 
 export interface MachineStats {
@@ -44,12 +46,25 @@ export function useAnomalyFeed(socketUrl: string) {
         const newAlert: Alert = {
           id: data.id || Math.random().toString(36).substring(7),
           machineId: data.machineId,
+          zone: data.zone || 'General Zone',
           timestamp: new Date().toISOString(),
           score: data.score,
           message: data.message,
-          severity: data.score > 0.8 ? 'critical' : data.score > 0.5 ? 'warning' : 'info'
+          severity: data.score > 0.8 ? 'critical' : data.score > 0.5 ? 'warning' : 'info',
+          duplicateCount: data.duplicateCount || 1
         };
         setAlerts((prev) => [newAlert, ...prev].slice(0, 50));
+      }
+
+      // Handle alert increment event
+      if (data.type === 'alert_increment') {
+        setAlerts((prev) => 
+          prev.map(alert => 
+            (alert.machineId === data.machineId && alert.message === data.message)
+              ? { ...alert, duplicateCount: data.duplicateCount }
+              : alert
+          )
+        );
       }
       
       // Handle score update
