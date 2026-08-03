@@ -1,10 +1,22 @@
 import uuid
-from sqlalchemy import Column, String, Text, JSON, DateTime
+from sqlalchemy import Column, String, Text, JSON, DateTime, Integer, Time
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base
 from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
+
+class MaintenanceWindow(Base):
+    __tablename__ = 'maintenance_windows'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    zone = Column(String(255), nullable=False)
+    day_of_week = Column(Integer, nullable=False) # 0=Monday, 6=Sunday
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+
+    def __repr__(self):
+        return f"<MaintenanceWindow(zone={self.zone}, day={self.day_of_week})>"
 
 class Document(Base):
     __tablename__ = 'documents'
