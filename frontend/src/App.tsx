@@ -6,6 +6,7 @@ import { RiskScoreChart } from './components/RiskScoreChart';
 import { MachineDetailPanel } from './components/MachineDetailPanel';
 import { AgentChatPanel } from './components/chat/AgentChatPanel';
 import { FailedJobsPanel } from './components/FailedJobsPanel';
+import { MaintenanceScheduler } from './components/MaintenanceScheduler';
 import { Login } from './components/Login';
 import { Activity, Radio, MessageSquareText, AlertOctagon, X, LogOut } from 'lucide-react';
 import clsx from 'clsx';
@@ -152,6 +153,9 @@ function App() {
           </div>
           
           <FailedJobsPanel />
+          <div className="shrink-0 h-[300px]">
+            <MaintenanceScheduler />
+          </div>
         </div>
 
         {/* Middle Column: Alerts & Details (Hidden or shrinked when chat is open) */}
