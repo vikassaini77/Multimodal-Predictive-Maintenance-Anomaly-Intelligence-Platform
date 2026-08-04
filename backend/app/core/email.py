@@ -1,10 +1,11 @@
 import os
 import resend
+from backend.app.utils.logger import logger
 
 def send_critical_alert_email(machine_id: str, message: str, score: float):
     api_key = os.environ.get("RESEND_API_KEY")
     if not api_key:
-        print(f"[Email Mock] Critical Alert for {machine_id}: {message}")
+        logger.warning(f"[Email Mock] Critical Alert for {machine_id}: {message}")
         return
         
     resend.api_key = api_key
@@ -18,12 +19,13 @@ def send_critical_alert_email(machine_id: str, message: str, score: float):
     """
     
     try:
-        r = resend.Emails.send({
+        params = {
             "from": "alerts@resend.dev",
             "to": "oncall@industrial-ai.local",
             "subject": f"CRITICAL: {machine_id} Failing",
             "html": html_content
-        })
-        print(f"Dispatched critical email via Resend: {r}")
+        }
+        r = resend.Emails.send(params)
+        logger.info(f"Dispatched critical email via Resend: {r}")
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        logger.error(f"Failed to send email: {e}")

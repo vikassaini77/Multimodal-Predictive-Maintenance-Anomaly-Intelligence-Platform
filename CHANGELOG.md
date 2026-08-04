@@ -4,6 +4,27 @@ All notable changes to the **Multimodal Predictive Maintenance & Anomaly Intelli
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-04
+
+### Added
+- **Async Jobs**: Improved background processing for model drift evaluation and long-running analytics.
+- **Authentication**: JWT-based authentication across all API endpoints with refresh token rotation.
+- **Rate Limiting**: Redis-backed rate limiting per IP address across all public and authenticated routes.
+- **Audit Logs**: Comprehensive event tracking for user actions (CRUD) with persistent Redis queue.
+- **Alert Deduplication**: Edge feed deduplication using Redis `INCR` to prevent redundant failure notifications for the same machine ID and timestamp window.
+- **Chaos Tests**: Introduced the `AgentBenchmark` chaos suite to evaluate agent responses under severe fault cascades.
+- **Structured Logging**: Migrated all standard print statements to `structlog` for JSON-formatted, context-rich logging (includes trace IDs, machine IDs, user IDs).
+- **Connection Pooling**: Improved DB latency and reliability by adding SQLAlchemy connection pooling (size=20, max_overflow=10).
+- **Maintenance Windows**: New CRUD endpoints for maintenance scheduling to suppress alerts on machines during active maintenance.
+
+### Changed
+- Refactored middleware into a strict sequential stack (`Auth -> Rate Limit -> Audit Log -> Request ID`).
+- Redesigned `AlertFeed` on frontend to group anomalies by physical factory zone with badge counters for duplicate events.
+
+### Fixed
+- Fixed database connection exhaustion under heavy concurrent load (Locust testing verified 0% error rate).
+- Fixed missing `X-Trace-ID` in internal agent tool executions.
+
 ## [1.0.0] - 2026-07-14
 
 ### Added

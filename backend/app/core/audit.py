@@ -3,6 +3,7 @@ import json
 from sqlalchemy.orm import Session
 from backend.app.db.models import AuditLog
 from backend.app.db.session import SessionLocal
+from backend.app.utils.logger import logger
 
 def log_audit_event(actor: str, action: str, inputs: dict, outputs: dict, outcome: str, machine_id: str = None, severity: str = None):
     """
@@ -40,6 +41,6 @@ def log_audit_event(actor: str, action: str, inputs: dict, outputs: dict, outcom
         db.rollback()
         # In a robust production environment, you might log this error to a different channel, 
         # but you wouldn't necessarily crash the core process.
-        print(f"Failed to write audit log: {e}")
+        logger.error(f"Failed to write audit log: {e}")
     finally:
         db.close()

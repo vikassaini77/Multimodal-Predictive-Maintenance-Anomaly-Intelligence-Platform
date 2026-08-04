@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from backend.app.core.security import limiter
+from backend.app.core.middleware import CoreMiddlewareStack
 
 import time
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -47,32 +48,18 @@ def custom_validation_exception_handler(request: Request, exc: RequestValidation
 # Start Prometheus metrics collection
 Instrumentator().instrument(app).expose(app)
 
-class TraceIDMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        trace_id = request.headers.get("X-Trace-ID", str(uuid.uuid4()))
-        token = trace_id_ctx_var.set(trace_id)
-        
-        logger.info(f"Incoming request: {request.method} {request.url.path}")
-        try:
-            response = await call_next(request)
-            response.headers["X-Trace-ID"] = trace_id
-            return response
-        finally:
-            trace_id_ctx_var.reset(token)
-
-app.add_middleware(TraceIDMiddleware)
+app.add_middleware(CoreMiddlewareStack)
 
 from backend.app.api.agent_router import router as agent_router
 from backend.app.api.auth import router as auth_router
 from backend.app.api.audit_router import router as audit_router
 from backend.app.api.maintenance_router import router as maintenance_router
-from backend.app.core.security import get_current_user
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
-app.include_router(graph_router, prefix="/graph", tags=["graph"], dependencies=[Depends(get_current_user)])
-app.include_router(agent_router, prefix="/agent", tags=["agent"], dependencies=[Depends(get_current_user)])
-app.include_router(audit_router, prefix="/audit", tags=["audit"], dependencies=[Depends(get_current_user)])
-app.include_router(maintenance_router, prefix="/maintenance", tags=["maintenance"], dependencies=[Depends(get_current_user)])
+app.include_router(graph_router, prefix="/graph", tags=["graph"])
+app.include_router(agent_router, prefix="/agent", tags=["agent"])
+app.include_router(audit_router, prefix="/audit", tags=["audit"])
+app.include_router(maintenance_router, prefix="/maintenance", tags=["maintenance"])
 
 init_db()
 
@@ -109,4 +96,4 @@ async def edge_feed_websocket(websocket: WebSocket):
         pubsub.unsubscribe("edge_alerts")
     except Exception as e:
         pubsub.unsubscribe("edge_alerts")
-        print(f"Edge Feed WebSocket error: {e}")
+        logger.error(f"Edge Feed WebSocket error: {e}")

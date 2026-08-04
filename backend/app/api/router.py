@@ -5,6 +5,7 @@ import json
 import asyncio
 import redis
 from typing import List
+from backend.app.utils.logger import logger
 
 from backend.app.schemas.graph import GraphInput, RiskPrediction
 from backend.app.api.dependencies import get_model_container, ModelContainer
@@ -167,7 +168,7 @@ async def alerts_websocket(websocket: WebSocket):
         pubsub.unsubscribe("dlq_alerts")
     except Exception as e:
         pubsub.unsubscribe("dlq_alerts")
-        print(f"Alerts WebSocket error: {e}")
+        logger.error(f"Alerts WebSocket error: {e}")
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):

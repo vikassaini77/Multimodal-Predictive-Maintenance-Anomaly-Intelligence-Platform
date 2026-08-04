@@ -1,52 +1,41 @@
 import logging
 import uuid
 import contextvars
-from logging import LogRecord
+import structlog
 from backend.app.config import settings
 
 # Context variable to hold the trace ID
 trace_id_ctx_var = contextvars.ContextVar("trace_id", default="NO-TRACE-ID")
 
-class TraceIDFilter(logging.Filter):
+def inject_context_vars(logger, log_method, event_dict):
     """
-    Injects the trace_id from the context variable into the log record.
+    Injects context variables into the structlog event dictionary.
     """
-    def filter(self, record: LogRecord) -> bool:
-        record.trace_id = trace_id_ctx_var.get()
-        return True
+    event_dict["trace_id"] = trace_id_ctx_var.get()
+    return event_dict
 
-def setup_logger(name: str = "industrial_mind") -> logging.Logger:
-    logger = logging.getLogger(name)
+def setup_logger(name: str = "industrial_mind"):
+    # Configure standard logging to be captured by structlog
+    logging.basicConfig(format="%(message)s", level=logging.INFO)
+
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            inject_context_vars,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.JSONRenderer()
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
     
-    # Only configure if not already configured
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        
-        from pythonjsonlogger import jsonlogger
-        
-        class CustomJsonFormatter(jsonlogger.JsonFormatter):
-            def add_fields(self, log_record, record, message_dict):
-                super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
-                if not log_record.get('timestamp'):
-                    log_record['timestamp'] = self.formatTime(record, self.datefmt)
-                if log_record.get('level'):
-                    log_record['level'] = log_record['level'].upper()
-                else:
-                    log_record['level'] = record.levelname
-
-        formatter = CustomJsonFormatter(
-            '%(timestamp)s %(level)s %(name)s %(message)s %(trace_id)s'
-        )
-        
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
-        
-        logger.addHandler(handler)
-        logger.addFilter(TraceIDFilter())
-        
-        # Prevent propagation to the root logger to avoid double-logging
-        logger.propagate = False
-        
-    return logger
+    return structlog.get_logger(name)
 
 logger = setup_logger()

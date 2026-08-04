@@ -64,7 +64,7 @@ class InferencePipeline:
                 self.redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
                 self.redis_client.ping()
             except Exception as e:
-                print(f"Warning: Redis connection failed: {e}. Falling back to in-memory cache.")
+                logger.warning(f"Warning: Redis connection failed: {e}. Falling back to in-memory cache.")
                 self.redis_client = None
 
     def _generate_cache_key(self, machine_id: str, timestamp: float) -> str:
@@ -173,9 +173,9 @@ class InferencePipeline:
         try:
             prob = _run_forward()
         except RuntimeError as e:
-            if "CUDA out of memory" in str(e) or "out of memory" in str(e).lower():
+            if "out of memory" in str(e).lower():
                 latency_warning = True
-                print("CUDA OOM caught! Falling back to CPU for inference.")
+                logger.error("CUDA OOM caught! Falling back to CPU for inference.")
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 self.device = torch.device("cpu")

@@ -10,6 +10,7 @@ from backend.app.agent.registry import PermissionScope
 from backend.app.agent.serializer import AgentTraceSerializer
 from fastapi import Request
 from backend.app.core.security import limiter
+from backend.app.utils.logger import logger
 
 router = APIRouter()
 memory = ConversationMemory(ttl_seconds=1800, max_turns=10)
@@ -76,7 +77,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             memory.save_turn(session_id, data, final_answer)
             
     except WebSocketDisconnect:
-        print(f"Client disconnected from session {session_id}")
+        logger.info(f"Client disconnected from session {session_id}")
     except Exception as e:
-        print(f"WebSocket error: {str(e)}")
+        logger.error(f"WebSocket error: {str(e)}")
         await websocket.close(code=1011)

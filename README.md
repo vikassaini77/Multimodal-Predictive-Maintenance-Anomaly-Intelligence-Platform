@@ -4,6 +4,8 @@
 
 # 🏭 Multimodal Predictive Maintenance & Anomaly Intelligence Platform
 
+![Version v1.1.0 Production](https://img.shields.io/badge/version-v1.1.0_Production-success)
+
 **Built IndustrialMind AI — a multimodal predictive maintenance platform with Two-Tower learning, GraphSAGE, ReAct agent, and TensorRT FP16 edge deployment.**
 
 [🎥 **Watch the 3-Minute Demo Video**](#) <!-- TODO: Replace with YouTube link -->
@@ -371,7 +373,22 @@ docker run -p 8000:8000 --env-file .env multimodal-predictive-platform
 | **v0.1.0** | Two-Tower Fusion & Contrastive Pretraining | ✅ Complete |
 | **v0.2.0** | GraphSAGE Topology & Explainability API | ✅ Complete |
 | **v0.3.0** | Autonomous ReAct Agent & RAG Pipeline | ✅ Complete |
-| **v0.4.0** | TensorRT Edge Deployment & INT8 Quantization | ⏳ Upcoming |
+| **v1.1.0** | Production Reliability, Auth, Async Jobs & Audit | ✅ Complete |
+| **v1.2.0** | Model Drift Detection & MLOps Pipelines (Week 6 Preview) | ⏳ Upcoming |
+| **v2.0.0** | TensorRT Edge Deployment & INT8 Quantization | ⏳ Upcoming |
+
+---
+
+## 📅 Development Journey
+
+### Week 5 Summary: Production Readiness
+Achieved the **v1.1.0 Reliability Milestone** by migrating from research-grade to production-grade infrastructure:
+- **Resilience:** Replaced synchronous DB calls with SQLAlchemy connection pooling, eliminating connection overhead and achieving a 7x latency reduction (verified via Locust).
+- **Observability:** Migrated all `print()` statements to structured JSON logging using `structlog` with request tracing (`X-Trace-ID`). Profiled full API lifecycle using `py-spy`.
+- **Security:** Consolidated middleware into a strict ordered stack (`Auth -> Rate Limit -> Audit Log -> Request ID`), securing all agentic operations. Added robust Alert Deduplication and Maintenance Scheduling.
+
+### Week 6 Preview: MLOps & Drift
+Coming next: Automated **Model Drift Detection** pipelines to monitor production data distribution shifts over time, and advanced **MLOps** integration for seamless automated retraining when performance decays.
 
 ---
 
